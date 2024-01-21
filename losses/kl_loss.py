@@ -23,7 +23,8 @@ class KL_Loss(nn.Module):
         return kl
 
     def kl_two_ps_mc(self, p, q, n_mc=10000, chunk=10):
-        # Version that calculates the log-term of the KL divergence in chunks for memory optimisation.
+        # Version that calculates the log-term of the KL divergence in chunks for memory optimisation,
+        # exploiting the linearity of the mean.
         H_p = p.entropy()
 
         log_term_chunks = []
