@@ -1,19 +1,8 @@
-from torch import nn
 import torch
+from torch import nn
 import torch.nn.functional as F
 
-def get_configuration(name):
-    if "simple" in name:
-        method = "simple"
-    elif "pairwise" in name:
-        method = "pairwise"
-
-    if "mean" in name:
-        reduction = "mean"
-    elif "min" in name:
-        reduction = "min"
-
-    return method, reduction
+from .utils import get_configuration
 
 class MCNTXent(nn.Module):
     def __init__(self, loss: str, temperature: float = 0.1, n_mc: int = 16):

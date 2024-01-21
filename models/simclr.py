@@ -27,6 +27,7 @@ class SimCLR(nn.Module):
         self.backbone_net = backbone_net
         self.rep_dim = self.backbone_net.fc.in_features
         self.backbone_net.fc = Probabilistic_Layer(distribution_type, in_features=self.rep_dim)
+        self.projector_hidden = projector_hidden
 
         if projector_hidden:
             self.projector = MLP(self.rep_dim, projector_hidden, batchnorm_last=True, bias=False)
@@ -35,9 +36,10 @@ class SimCLR(nn.Module):
 
         self.loss = loss
         self.unc_loss = unc_loss
-        self.distribution_type = distribution_type
+
         self.temperature = temperature
-        self.projector_hidden = projector_hidden
+        self.n_mc = n_mc
+        self.distribution_type = distribution_type
 
         # Verbose
         print(f"We initialize SimCLR with {self.rep_dim} dimensions and a {distribution_type} distribution.")
@@ -67,6 +69,7 @@ class SimCLR(nn.Module):
         # Get Distribution
         dist1, dist2 = self.backbone_net(x1), self.backbone_net(x2)
 
+        n_batch = dist1.loc.shape[0]
         SimCLR.kappa = torch.mean(torch.cat([dist1.scale, dist2.scale], dim=0), dim=-1)
 
         if self.loss == "InfoNCE":
@@ -76,19 +79,19 @@ class SimCLR(nn.Module):
 
         if self.loss in "MCNT-Xent":
             if self.distribution_type in ["powerspherical", "normal"]:
-                z1 = dist1.rsample((self.n_samples,)).view(bz * self.n_samples, -1)
-                z2 = dist2.rsample((self.n_samples,)).view(bz * self.n_samples, -1)
+                z1 = dist1.rsample((self.n_mc,)).view(n_batch * self.n_mc, -1)
+                z2 = dist2.rsample((self.n_mc,)).view(n_batch * self.n_mc, -1)
             else:
-                z1 = dist1.rsample(self.n_samples).view(bz * self.n_samples, -1)
-                z2 = dist2.rsample(self.n_samples).view(bz * self.n_samples, -1)
+                z1 = dist1.rsample(self.n_mc).view(n_batch * self.n_mc, -1)
+                z2 = dist2.rsample(self.n_mc).view(n_batch * self.n_mc, -1)
 
             p1 = self.projector(z1)
             p2 = self.projector(z2)
-            ssl_loss = self.loss_fn(p1, p2)
+            ssl_loss = self.loss_fn(p1.view(self.n_mc, n_batch, -1), p2.view(self.n_mc, n_batch, -1))
 
         elif self.loss == "KL_Loss":
-            if self.projector_hidden:
-                ssl_loss = self.loss_fn(dist1.loc, dist1.std, dist2.loc, dist2.std)
+            if not self.projector_hidden:
+                ssl_loss = self.loss_fn(dist1, dist2)
             else:
                 pz1, pk1 = self.projector(dist1.loc, dist1.std)
                 pz2, pk2 = self.projector(dist2.loc, dist2.std)
