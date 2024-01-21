@@ -18,7 +18,7 @@ class BT_Loss(nn.Module):
         assert n == m
         return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
 
-    def loss_fn(self, z1, z2, lmbda_bt):
+    def forward(self, z1, z2, lmbda_bt):
 
         c = self.bn(z1).T @ self.bn(z2)
         c.div_(z1.size(0))
