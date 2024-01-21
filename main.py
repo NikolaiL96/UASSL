@@ -68,10 +68,9 @@ if __name__ == "__main__":
         method_params = {"projector_hidden": projector, "lambda_bt": args.lambda_bt, "lambda_reg": args.lambda_reg,
                          "unc_loss": args.unc_loss, "lambda_unc": args.lambda_unc}
 
-    name = f"{args.method}--{args.network}--{args.dataset}--{args.distribution}--lambda_reg={args.lambda_reg}" \
-           f"--lambda_unc={args.lambda_unc}"
+    name = f"{args.method}--{args.dataset}--{args.network}--{projector}--{args.loss}"
 
-    slug = name
+    slug = f"{args.distribution}--t={args.temperature}--l_reg={args.lambda_reg}--l_unc={args.lambda_unc}"
 
     if args.cluster:
         slug += f"--ID:{os.getenv('SLURM_JOB_ID')}"
