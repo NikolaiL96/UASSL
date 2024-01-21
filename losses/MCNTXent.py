@@ -51,6 +51,10 @@ class MCNTXent(nn.Module):
 
             return mask_self.to(bool), mask_pos.to(bool), ~mask_neg.to(bool)
 
+    def forward(self):
+        pass
+
+
 
 
 class MCNTXent_alt(nn.Module):
@@ -88,6 +92,9 @@ class MCNTXent_alt(nn.Module):
             return mask_self.to(bool), mask_pos.to(bool), ~mask_neg.to(bool)
 
         return mask.to(self.device)
+
+
+
 
     def forward(self, p1, p2, kappa: torch.tensor = None, t=None):
         B, _ = p1.shape

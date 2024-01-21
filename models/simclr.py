@@ -52,9 +52,7 @@ class SimCLR(nn.Module):
         elif self.loss == "MCNT-Xent":
             self.loss_fn = MCNTXent(loss, temperature, n_mc)
         elif self.loss == "KL_Loss":
-            self.loss_fn = KL_Loss(temperature)
-        elif self.loss == "KL_PS_Loss":
-            self.loss_fn = KL_PS_Loss(temperature)
+            self.loss_fn = KL_Loss(self.distribution_type, temperature)
 
         print(f"We use the {self.loss}. Temperature set to {temperature}")
 
@@ -74,6 +72,18 @@ class SimCLR(nn.Module):
         if self.loss == "InfoNCE":
             p1 = self.projector(dist1.loc)
             p2 = self.projector(dist2.loc)
+            ssl_loss = self.loss_fn(p1, p2)
+
+        if self.loss in "MCNT-Xent":
+            if self.distribution_type in ["powerspherical", "normal"]:
+                z1 = dist1.rsample((self.n_samples,)).view(bz * self.n_samples, -1)
+                z2 = dist2.rsample((self.n_samples,)).view(bz * self.n_samples, -1)
+            else:
+                z1 = dist1.rsample(self.n_samples).view(bz * self.n_samples, -1)
+                z2 = dist2.rsample(self.n_samples).view(bz * self.n_samples, -1)
+
+            p1 = self.projector(z1)
+            p2 = self.projector(z2)
             ssl_loss = self.loss_fn(p1, p2)
 
         elif self.loss == "KL_Loss":

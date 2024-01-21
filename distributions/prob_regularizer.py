@@ -9,14 +9,13 @@ from .vonmisesfisher import HypersphericalUniform, VonMisesFisher, _kl_vmf_unifo
 class Probabilistic_Regularizer(nn.Module):
     def __init__(self, distribution, lambda_reg, eps: float = 1e-6):
         super(Probabilistic_Regularizer, self).__init__()
+
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.distribution = distribution
-        self.lambda_reg = lambda_reg.to(self.device)
-
-        print(
-            f"Init Probabilistic Reguarlizer with `{self.distribution}` and lambda_reg={self.lambda_reg}"
-        )
+        self.lambda_reg = lambda_reg
         self.eps = eps
+
+        print(f"Init Probabilistic Reguarlizer with `{self.distribution}` and lambda_reg={self.lambda_reg}")
 
 
     def forward(self, x):
