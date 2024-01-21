@@ -23,7 +23,6 @@ class Validate:
 
     def __init__(self, data, distribution, model, epoch=None, last_epoch=False, low_shot=False, plot_tsne=False):
 
-
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
         self.last_epoch = last_epoch
@@ -145,7 +144,7 @@ class Validate:
 
                 recall, auroc = self._get_roc(loc_test, labels_test, kappa_test)
 
-                if not self.oob_test:
+                if not self.low_shot:
                     pred_labels = knn_predict(loc_test, train_features.t().contiguous(), train_labels, num_classes,
                                               knn_k,
                                               knn_t)
@@ -169,7 +168,7 @@ class Validate:
         Recall = torch.stack(Recall, 0).mean()
         Auroc = torch.Tensor(Auroc).mean()
 
-        if not self.oob_test:
+        if not self.low_shot:
             knn = torch.tensor(total_top1 / total_num * 100)
         else:
             knn = torch.zeros(1)

@@ -212,7 +212,7 @@ class SSL_Trainer(object):
                                       last_epoch=False, plot_tsne=True, low_shot=True)
 
                 _, _, _, cor_corrupted, p_corrupted = V._get_metrics()
-                Auroc_100, Recall_100, knn_100, = V_low_shot._get_metrics()
+                Auroc_100, Recall_100, knn_100, _, _ = V_low_shot._get_metrics()
 
                 linear_acc_100 = V_low_shot._get_linear_probing()
                 linear_acc_10 = V._get_linear_probing()
@@ -236,7 +236,7 @@ class SSL_Trainer(object):
                 self.tb_logger.add_scalar('ZeroShot/knn_CIFAR100', knn_100, epoch)
                 self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR100', linear_acc_100, epoch)
                 self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR10', linear_acc_10, epoch)
-                print(f"CIFAR100: AUROC={Auroc_100:0.4f}, R@1={Recall_100:0.3f}, KNN={knn_100.item():0.1f}")
+                print(f"Low-Shot: AUROC={Auroc_100:0.4f}, R@1={Recall_100:0.3f}, KNN={knn_100.item():0.1f}")
 
             if (epoch) in evaluate_at:
                 self.save_model(self.save_root, epoch + 1)
