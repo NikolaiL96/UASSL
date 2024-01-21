@@ -16,16 +16,16 @@ class MCNTXent(nn.Module):
 
     def mask(self, n_batch, n_mc):
         B = 2 * n_batch
-        if self.method == "simple":
+        if self.method == "local":
             mask_pos = torch.eye(B)
             mask_pos = mask_pos.roll(shifts=n_batch, dims=0)
             mask_pos = mask_pos.to(bool)
             mask_pos = mask_pos.unsqueeze(0).repeat(n_mc, 1, 1)
 
             mask_self = torch.eye(2 * n_batch, dtype=torch.bool, device=self.device)
-            mask_self = mask_self.unsqueeze(0).repeat(self.n_samples, 1, 1)
+            mask_self = mask_self.unsqueeze(0).repeat(n_mc, 1, 1)
 
-            return mask_self, mask_pos,
+            return mask_self, mask_pos
 
         elif self.method == "pairwise":
             b = 2 * n_batch
@@ -53,10 +53,12 @@ class MCNTXent(nn.Module):
             sim_mat = torch.bmm(z, z.permute(0, 2, 1))
             sim_mat = sim_mat.masked_fill_(mask_self, -9e15) / self.temperature
 
-            pos = sim_mat[mask_pos].view(self.n_samples, 2 * n_batch)
+            pos = sim_mat[mask_pos].view(n_mc, 2 * n_batch)
 
             if self.reduction == "mean":
-                loss = torch.logsumexp(sim_mat, dim=-1) - pos
+                l1 = torch.logsumexp(sim_mat, dim=-1)
+                l2 = pos
+                loss = l1 - l2
                 loss = loss.mean()
                 return loss
 
@@ -65,7 +67,7 @@ class MCNTXent(nn.Module):
 
         if self.method == "pairwise":
             mask_self, mask_pos, mask_neg = self.mask(n_batch, n_mc)
-            z = z.view(self.n_samples * 2 * n_batch, -1)
+            z = z.view(n_mc * 2 * n_batch, -1)
 
             sim_mat = z @ z.T
             sim_mat.masked_fill_(mask_self, -9e15) / self.temperature

@@ -20,8 +20,7 @@ class SSL_Trainer(object):
         self.train_data = train_data
         self.data_root = data_root
         self.distribution = distribution
-
-
+        self.ssl_data = ssl_data
 
         # Init
         self.epoch = 0
@@ -183,19 +182,23 @@ class SSL_Trainer(object):
                 with torch.no_grad():
                     V = Validate(data=data_val, distribution=self.distribution, model=self.model, epoch=epoch,
                                  last_epoch=False, oob_data=None, oob_test=False)
+                    V2 = Validate(data=self.ssl_data, distribution=self.distribution, model=self.model, epoch=epoch,
+                                 last_epoch=False, oob_data=None, oob_test=False)
 
                     auroc, recall, knn, cor_corrupted, p_corrupted = V._get_metrics()
+                    auroc2, recall2, knn2, _, _ = V._get_metrics()
                     self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
                     self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
 
                     print(f"Auroc: {auroc.item():0.3f}, Recall: {recall.item():0.3f}, knn: {knn.item():0.1f}")
+                    print(f"Auroc Shuffle: {auroc2.item():0.3f}, Recall Shuffle: {recall2.item():0.3f}, knn Shuffle: {knn2.item():0.1f}")
 
                     self.tb_logger.add_scalar('kappa/AUROC', auroc, epoch)
                     self.tb_logger.add_scalar('kappa/R@1', recall, epoch)
                     self.tb_logger.add_scalar('kappa/knn', knn, epoch)
 
             if verbose:
-                print(f'Epoch: {epoch}, Loss: {self.loss_hist[-1]:0.4f}, AUROC: {self.eval_acc["auc"][-1]:0.3f}, Time epoch: {time.time() - start_time:0.1f}',
+                print(f'Epoch: {epoch}, Loss: {self.loss_hist[-1]:0.4f}, AUROC: {auroc:0.3f}, Time epoch: {time.time() - start_time:0.1f}',
                       end='')
                 if self.device.type == 'cuda':
                     print(f', GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
