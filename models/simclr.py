@@ -56,6 +56,8 @@ class SimCLR(nn.Module):
             self.loss_fn = MCNTXent(loss, temperature, n_mc)
         elif self.loss == "KL_Loss":
             self.loss_fn = KL_Loss(self.distribution_type, temperature)
+        else:
+            raise ValueError("Specify a correct loss.")
 
         print(f"We use the {self.loss}. Temperature set to {temperature}")
 

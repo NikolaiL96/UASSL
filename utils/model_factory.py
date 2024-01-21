@@ -14,12 +14,15 @@ DEFAULT_OPTIONS = 'default_options'
 MODEL_CONFIG = {
     'BarlowTwins': {
         METHOD_CLS: models.BarlowTwins,
-        DEFAULT_OPTIONS: {"projector_hidden": (2048, 2048, 1024)}
+        DEFAULT_OPTIONS: {"projector_hidden": (2048, 2048, 1024),
+                          "loss": "BT_Loss",
+                          "lambda_reg": 0.01,
+                          "lambda_bt": 0.05}
     },
     'SimCLR': {
         METHOD_CLS: models.SimCLR,
         DEFAULT_OPTIONS: {"projector_hidden": (2048, 2048, 256),
-                          "loss": "InfoNCE",
+                          "loss": "NT-Xent",
                           "temperature": 0.05,
                           "lambda_reg": 0.01}
     },

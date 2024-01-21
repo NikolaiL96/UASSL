@@ -13,7 +13,7 @@ class BarlowTwins(nn.Module):
     # @ex.capture
     def __init__(
             self,
-            backbone_net,
+            backbone_net: nn.Module,
             projector_hidden: Union[int, tuple] = (8192, 8192, 8192),
             lambda_bt: float = 0.0051,
             lambda_reg: float = 0,
@@ -25,6 +25,7 @@ class BarlowTwins(nn.Module):
         super().__init__()
 
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.backbone_net = backbone_net
         self.rep_dim = self.backbone_net.fc.in_features
 
         if backbone_net.name != "UncertaintyNet":

@@ -136,9 +136,6 @@ class SSL_Trainer(object):
             else:
                 self.scheduler = scheduler
 
-        dl_kwargs = {"batch_size": 512, "shuffle": False, "num_workers": min(os.cpu_count(), 0)}
-        data_val, _, in_chan = load_dataset(self.train_data, self.data_root, augmentation_type="BYOL", dl_kwargs=dl_kwargs)
-
         # Run Training
         for epoch in range(epoch_start, num_epochs):
             self.epoch = epoch

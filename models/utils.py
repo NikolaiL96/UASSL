@@ -30,7 +30,6 @@ class MLP(nn.Module):
     def forward(self, x):
         return self.mlp(x)
 
-
 class MLP_variational(nn.Module):
     def __init__(self, in_dim: int,
                  hidden_dims: Union[int, tuple],

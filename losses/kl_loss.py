@@ -50,11 +50,11 @@ class KL_Loss(nn.Module):
         loc = torch.cat([p1.loc, p2.loc], dim=0)
         scale = torch.cat([p1.scale, p2.scale], dim=0)
 
-        if self.distribution == "powerspherical":
+        if "powerspherical" in self.distribution:
             p = q = powerspherical.PowerSpherical(loc, scale)
             sim_mat = self.kl_two_powerspherical_mc(p, q)
 
-        elif self.distribution == "normal":
+        elif "normal" in self.distribution:
             sim_mat = self.kl_two_normals(loc, loc, scale, scale)
 
         mask_pos = self._mask(n_batch)

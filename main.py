@@ -28,12 +28,12 @@ if __name__ == "__main__":
     parser.add_argument("--distribution", "-dist", default="powerspherical")
     parser.add_argument("--dataset", "-d", default="cifar10")
     parser.add_argument("--lr", default=6e-2, type=float)
-    parser.add_argument("--loss", "-l", default="NT-Xent")
+    parser.add_argument("--loss", "-l", default="KL_Loss")
     parser.add_argument("--lambda_reg", "-lam", default=0.1, type=float)
     parser.add_argument("--temperature", "-t", default=0.1, type=float)
     parser.add_argument("--batch_size", "-bs", default=64, type=int)
-    parser.add_argument("--network", "-n", default="uncertainty_net", type=str)
-    parser.add_argument("--projector", "-pr", default=True, type=str2bool)
+    parser.add_argument("--network", "-n", default="resnet18", type=str)
+    parser.add_argument("--projector", "-pr", default=False, type=str2bool)
     parser.add_argument("--n_mc", default=16, type=int)
     parser.add_argument("--fine_tuned", default=False, type=str2bool)
     parser.add_argument("--lambda_bt", "-lbt", default=0.005, type=float)
@@ -66,8 +66,8 @@ if __name__ == "__main__":
                          "temperature": args.temperature, "unc_loss": args.unc_loss, "lambda_unc": args.lambda_unc,
                          "n_mc": args.n_mc}
     elif args.method == "BarlowTwins":
-        method_params = {"projector_hidden": projector, "lambda_bt": args.lambda_bt, "lambda_reg": args.lambda_reg,
-                         "unc_loss": args.unc_loss, "lambda_unc": args.lambda_unc}
+        method_params = {"projector_hidden": projector, "loss": args.loss, "lambda_bt": args.lambda_bt,
+                         "lambda_reg": args.lambda_reg, "unc_loss": args.unc_loss, "lambda_unc": args.lambda_unc}
 
     name = f"{args.method}--{args.dataset}--{args.network}--{projector}--{args.loss}"
     slug = f"{args.distribution}--t={args.temperature}--l_reg={args.lambda_reg}--l_unc={args.lambda_unc}"
