@@ -19,7 +19,6 @@ class BarlowTwins(nn.Module):
             lambda_reg: float = 0,
             distribution_type: str = "powerspherical",
             loss: str = "BT_Loss",
-            unc_loss: bool = False,
             lambda_unc: float = 0.001
     ):
         super().__init__()
@@ -33,8 +32,8 @@ class BarlowTwins(nn.Module):
 
         self.distribution_type = distribution_type
 
-        self.unc_loss = unc_loss
         self.lambda_bt = lambda_bt
+        self.lambda_unc = lambda_unc
         self.backbone_net = backbone_net
 
         # Define projector
@@ -53,7 +52,7 @@ class BarlowTwins(nn.Module):
         print(f"We initialize BarlowTwins with {self.rep_dim} dimensions and a {distribution_type} distribution")
         print(f"The projector has {projector_hidden} hidden units")
 
-        if self.unc_loss:
+        if self.lambda_unc != 0.:
             self.uncertainty_loss = UncertaintyLoss(lambda_unc)
             print("We use the Uncertainty Loss")
 
@@ -75,7 +74,7 @@ class BarlowTwins(nn.Module):
         ssl_loss = self.loss_fn(p1, p2, self.lambda_bt)
         var_reg = self.regularizer((dist1, dist2))
 
-        if self.unc_loss:
+        if self.lambda_unc != 0.:
             unc_loss = self.uncertainty_loss(dist1, dist2)
         else:
             unc_loss = torch.zeros(1, device=self.device)

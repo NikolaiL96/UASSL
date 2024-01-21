@@ -16,9 +16,8 @@ class SimCLR(nn.Module):
             loss: str = "InfoNCE",
             temperature: float = 0.05,
             distribution_type: str = None,
-            lambda_reg: float = 1.0,
-            unc_loss: bool = False,
-            lambda_unc: float = 0.001,
+            lambda_reg: float = 0.001,
+            lambda_unc: float = 0.,
             n_mc: int = 16
     ):
         super().__init__()
@@ -36,9 +35,9 @@ class SimCLR(nn.Module):
             self.projector = nn.Identity()
 
         self.loss = loss
-        self.unc_loss = unc_loss
 
         self.temperature = temperature
+        self.lambda_unc = lambda_unc
         self.n_mc = n_mc
         self.distribution_type = distribution_type
 
@@ -61,12 +60,12 @@ class SimCLR(nn.Module):
 
         print(f"We use the {self.loss}. Temperature set to {temperature}")
 
-        if self.unc_loss:
-            self.uncertainty_loss = UncertaintyLoss(lambda_unc)
-            print("We use the Uncertainty Loss")
-
         # Regularizer for the generated distribution
         self.regularizer = Probabilistic_Regularizer(distribution_type, lambda_reg)
+
+        if self.lambda_unc != 0.:
+            self.uncertainty_loss = UncertaintyLoss(lambda_unc)
+            print("We use the Uncertainty Loss")
 
     def forward(self, x1, x2):
         dist1, dist2 = self.backbone_net(x1), self.backbone_net(x2)
@@ -99,7 +98,7 @@ class SimCLR(nn.Module):
 
         var_reg = self.regularizer((dist1, dist2))
 
-        if self.unc_loss:
+        if self.lambda_unc != 0.:
             unc_loss = self.uncertainty_loss(dist1, dist2)
         else:
             unc_loss = torch.Tensor(0, device=self.device)

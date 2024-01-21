@@ -37,7 +37,6 @@ if __name__ == "__main__":
     parser.add_argument("--n_mc", default=16, type=int)
     parser.add_argument("--fine_tuned", default=False, type=str2bool)
     parser.add_argument("--lambda_bt", "-lbt", default=0.005, type=float)
-    parser.add_argument("--unc_loss", "-ul", default=False, type=str2bool)
     parser.add_argument("--lambda_unc", "-lu", default=0.1, type=float)
     parser.add_argument("--run_final", "-rf", default=False, type=str2bool)
 
@@ -63,11 +62,11 @@ if __name__ == "__main__":
 
     if args.method == "SimCLR":
         method_params = {"projector_hidden": projector, "loss": args.loss, "lambda_reg": args.lambda_reg,
-                         "temperature": args.temperature, "unc_loss": args.unc_loss, "lambda_unc": args.lambda_unc,
+                         "temperature": args.temperature, "lambda_unc": args.lambda_unc,
                          "n_mc": args.n_mc}
     elif args.method == "BarlowTwins":
         method_params = {"projector_hidden": projector, "loss": args.loss, "lambda_bt": args.lambda_bt,
-                         "lambda_reg": args.lambda_reg, "unc_loss": args.unc_loss, "lambda_unc": args.lambda_unc}
+                         "lambda_reg": args.lambda_reg, "lambda_unc": args.lambda_unc}
 
     name = f"{args.method}--{args.dataset}--{args.network}--{projector}--{args.loss}"
     slug = f"{args.distribution}--t={args.temperature}--l_reg={args.lambda_reg}--l_unc={args.lambda_unc}"
