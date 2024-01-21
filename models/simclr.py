@@ -66,7 +66,6 @@ class SimCLR(nn.Module):
         self.regularizer = Probabilistic_Regularizer(distribution_type, lambda_reg)
 
     def forward(self, x1, x2):
-        # Get Distribution
         dist1, dist2 = self.backbone_net(x1), self.backbone_net(x2)
 
         n_batch = dist1.loc.shape[0]
@@ -77,7 +76,7 @@ class SimCLR(nn.Module):
             p2 = self.projector(dist2.loc)
             ssl_loss = self.loss_fn(p1, p2)
 
-        elif self.loss == "MCNT-Xent":
+        elif "MCNT-Xent" in self.loss:
             z1 = dist1.rsample((self.n_mc,)).view(n_batch * self.n_mc, -1)
             z2 = dist2.rsample((self.n_mc,)).view(n_batch * self.n_mc, -1)
 

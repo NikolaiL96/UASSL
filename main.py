@@ -69,14 +69,13 @@ if __name__ == "__main__":
                          "unc_loss": args.unc_loss, "lambda_unc": args.lambda_unc}
 
     name = f"{args.method}--{args.dataset}--{args.network}--{projector}--{args.loss}"
-
     slug = f"{args.distribution}--t={args.temperature}--l_reg={args.lambda_reg}--l_unc={args.lambda_unc}"
 
     if args.cluster:
         slug += f"--ID:{os.getenv('SLURM_JOB_ID')}"
 
-    time = datetime.datetime.now().strftime("%I:%M%p%B%d")
-    slug + f"--{time}"
+    time = datetime.datetime.now().strftime("%B%d")
+    slug += f"--{time}"
 
     param_dict = {"name": name,
                   "slug": slug,

@@ -108,7 +108,6 @@ class Validate:
         test_labels = ()
         test_kappa = ()
         test_loc = ()
-        img = []
 
         Recall = []
         Auroc = []
@@ -152,8 +151,6 @@ class Validate:
 
             test_features += (F.normalize(loc_test, dim=1),)
 
-            if self.plotting:
-                img.append(x_test.cpu())
             test_labels += (labels_test.cpu(),)
             test_kappa += (kappa_test,)
             test_loc += (loc_test,)
@@ -161,19 +158,10 @@ class Validate:
             Recall.append(recall)
             Auroc.append(auroc)
 
-            # if n == 0:
-            #     break
 
         test_features = torch.cat(test_features)
         test_labels = torch.cat(test_labels).to(self.device)
         uncertainty = torch.cat(test_kappa).to(self.device)
-        test_loc = torch.cat(test_loc).to(self.device)
-
-        if self.plotting and self.last_epoch:
-            img = torch.cat(img).to(self.device)
-            kappa_idx, img_idx = _find_low_and_high_images(img.cpu(), test_labels.cpu(), uncertainty.cpu(),
-                                                           test_loc.cpu(), device=torch.device('cpu'))
-            self.plot_kappa(kappa_idx, img_idx)
 
         Recall = torch.stack(Recall, 0).mean()
         Auroc = torch.Tensor(Auroc).mean()
