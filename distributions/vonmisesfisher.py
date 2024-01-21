@@ -134,6 +134,7 @@ class VonMisesFisher(torch.distributions.Distribution):
             return self.rsample(shape)
 
     def rsample(self, shape=torch.Size()):
+        shape = shape.squeeze()
         shape = shape if isinstance(shape, torch.Size) else torch.Size([shape])
 
         w = (

@@ -2,7 +2,7 @@ from typing import Union
 
 import torch
 import torch.nn as nn
-from distributions import Probabilistic_Layer, Probabilistic_Regularizer
+from distributions import Probabilistic_Layer, Probabilistic_Regularizer, Normal
 from .utils import MLP
 from losses import MCNTXent, NTXent, KL_Loss, UncertaintyLoss
 
@@ -77,13 +77,9 @@ class SimCLR(nn.Module):
             p2 = self.projector(dist2.loc)
             ssl_loss = self.loss_fn(p1, p2)
 
-        if self.loss in "MCNT-Xent":
-            if self.distribution_type in ["powerspherical", "normal"]:
-                z1 = dist1.rsample((self.n_mc,)).view(n_batch * self.n_mc, -1)
-                z2 = dist2.rsample((self.n_mc,)).view(n_batch * self.n_mc, -1)
-            else:
-                z1 = dist1.rsample(self.n_mc).view(n_batch * self.n_mc, -1)
-                z2 = dist2.rsample(self.n_mc).view(n_batch * self.n_mc, -1)
+        elif self.loss in "MCNT-Xent":
+            z1 = dist1.rsample((self.n_mc,)).view(n_batch * self.n_mc, -1)
+            z2 = dist2.rsample((self.n_mc,)).view(n_batch * self.n_mc, -1)
 
             p1 = self.projector(z1)
             p2 = self.projector(z2)
@@ -95,7 +91,7 @@ class SimCLR(nn.Module):
             else:
                 pz1, pk1 = self.projector(dist1.loc, dist1.std)
                 pz2, pk2 = self.projector(dist2.loc, dist2.std)
-                ssl_loss = self.loss_fn(pz1, pk1, pz2, pk2)
+                ssl_loss = self.loss_fn(Normal(pz1, pk1), Normal(pz2, pk2))
 
         elif self.loss == "KL_PS_Loss":
             ssl_loss = self.loss_fn(dist1, dist2)

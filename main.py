@@ -23,8 +23,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--cluster", "-c", default=False, type=str2bool)
     parser.add_argument("--method", "-m", default="SimCLR")
-    parser.add_argument("--epochs", "-e", default=10, type=int)
-    parser.add_argument("--warmup", "-w", default=2, type=int)
+    parser.add_argument("--epochs", "-e", default=800, type=int)
+    parser.add_argument("--warmup", "-w", default=10, type=int)
     parser.add_argument("--distribution", "-dist", default="powerspherical")
     parser.add_argument("--dataset", "-d", default="cifar10")
     parser.add_argument("--lr", default=6e-2, type=float)
@@ -51,6 +51,7 @@ if __name__ == "__main__":
             path = "/home/lorenzni/runs_SSL"
     else:
         data_root = "/Users/nikolai.lorenz/Desktop/Statistik/Masterarbeit/Code/SSL_VAE/data"
+        path = "./saved_runs/"
 
     if args.projector:
         if args.method == "BarlowTwin":
@@ -93,6 +94,5 @@ if __name__ == "__main__":
                   "lambda_unc": args.lambda_unc,
                   "path": path,
                   "data_root": data_root}
-
 
     ex.run(named_configs=[args.method], config_updates=param_dict)
