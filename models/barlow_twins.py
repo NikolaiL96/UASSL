@@ -67,8 +67,8 @@ class BarlowTwins(nn.Module):
         BarlowTwins.kappa = torch.mean(torch.cat([dist1.scale, dist2.scale], dim=0), dim=-1)
 
         # Get Sample Projections
-        p1 = self.projector(dist1.rsample())
-        p2 = self.projector(dist2.rsample())
+        p1 = self.projector(dist1.loc)
+        p2 = self.projector(dist2.loc)
 
         # Get standard barlow twin loss
         ssl_loss = self.loss_fn(p1, p2, self.lambda_bt)

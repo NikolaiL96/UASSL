@@ -12,7 +12,7 @@ class NTXent(nn.Module):
         self.temperature = temperature
         self.normalize = normalize
 
-    def _mask(self, n_batch):
+    def mask(self, n_batch):
         mask_pos = torch.eye(2 * n_batch)
         mask_pos = mask_pos.roll(shifts=n_batch, dims=0)
         mask_pos = mask_pos.to(bool)
@@ -27,7 +27,7 @@ class NTXent(nn.Module):
         z = torch.cat([p1, p2], dim=0)
         sim_mat = torch.matmul(z, z.T)
 
-        mask_pos = self._mask(n_batch)
+        mask_pos = self.mask(n_batch)
         sim_mat = sim_mat.fill_diagonal_(-9e6) / self.temperature
 
         loss = torch.logsumexp(sim_mat, dim=-1) - sim_mat[mask_pos]
