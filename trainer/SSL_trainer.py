@@ -198,9 +198,9 @@ class SSL_Trainer(object):
                       end='')
                 if self.device.type == 'cuda':
                     print(f', GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
-                          f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='')
+                          f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')
 
-                print(f'SSL Loss: {self.ssl_loss_hist[-1]:0.4f}, Regularisation Loss: {self.kl_loss_hist[-1]:0.5f},'
+                print(f'SSL Loss: {self.ssl_loss_hist[-1]:0.4f}, Regularisation Loss: {self.kl_loss_hist[-1]:0.5f}, '
                       f'Uncertainty Loss: {self.unc_loss_hist[-1]:0.4f}')
 
             # Run evaluation

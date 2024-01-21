@@ -71,51 +71,10 @@ class MCNTXent(nn.Module):
             sim_mat.masked_fill_(mask_self, -9e15) / self.temperature
 
             if self.reduction == "mean":
-                pos = sim_mat[mask_pos].view(self.n_samples * 2 * n_batch, -1)
-                loss = torch.logsumexp(sim_mat, dim=-1)
+                loss = torch.logsumexp(sim_mat, dim=-1)[:, None] - sim_mat[mask_pos].view(n_mc * 2 * n_batch, -1)
+                loss = torch.mean(loss, dim=-1)
                 return loss.mean()
-        #
-        #
-        #     if self.reduction == "min":
-        #         min_positives, _ = torch.min(positives, dim=0)
-        #         loss = torch.logsumexp(sim_mat, dim=-1) - min_positives[None, :]
-        #     else:
-        #         loss = torch.logsumexp(sim_mat, dim=-1) - positives
-        #     loss = torch.logsumexp(loss, dim=0) - torch.log(torch.ones(1, device=self.device) * self.n_samples)
-        #     loss = torch.mean(loss)
-        #
-        #     if self.uncertainty_weighting == "weighted average":
-        #         k_norm = F.softmax(kappa, dim=0).squeeze(1)
-        #         loss = torch.sum(k_norm * loss)
-        #     else:
-        #         loss = loss.mean()
-        #
-        # elif self.method == "pairwise":
-        #     embedding = embedding.view(self.n_samples * 2 * n_batch, -1)
-        #     sim_mat = torch.matmul(embedding, embedding.T)
-        #     mask_pos = self._mask(n_batch, self.n_samples)
-        #
-        #     sim_mat = sim_mat.fill_diagonal_(-9e15)
 
-        #
-        #     positives = sim_mat[mask_pos].view(self.n_samples * 2 * n_batch, -1)
-        #
-        #     if self.reduction == "min":
-        #         min_positives, _ = torch.min(positives, dim=-1)
-        #         loss = torch.logsumexp(sim_mat, dim=-1) - min_positives
-        #     else:
-        #         loss = torch.logsumexp(sim_mat, dim=-1) - torch.logsumexp(positives, dim=-1)
-        #
-        #     if self.uncertainty_weighting == "weighted average":
-        #         k_norm = F.softmax(kappa, dim=0)
-        #         loss = torch.repeat_interleave(k_norm.squeeze(1), self.n_samples) * loss
-        #         loss = torch.sum(loss) / self.n_samples
-        #     # elif self.uncertainty_weighting == "temperature":
-        #     # max2 = torch.max(kappa)
-        #     # kappa2 = torch.div(kappa, max2)
-        #     # kappa3 = 1 - kappa2
-        #
-        #     else:
-        #         loss = loss.mean()
-        #
-        # return loss
+            elif self.reduction == "min":
+                pass
+
