@@ -57,6 +57,11 @@ class MCNTXent(nn.Module):
 
             if self.reduction == "mean":
                 loss = torch.logsumexp(sim_mat, dim=-1) - pos
+                loss = loss.mean()
+                return loss
+
+            elif self.reduction == "min":
+                pass
 
         if self.method == "pairwise":
             mask_self, mask_pos, mask_neg = self.mask(n_batch, n_mc)

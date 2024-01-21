@@ -6,13 +6,12 @@ from torch.utils.tensorboard import SummaryWriter
 import torch
 from torch.optim import lr_scheduler
 
-from utils import check_existing_model, Validate, print_parameter_status
+from utils import check_existing_model, Validate
 from utils import load_dataset
-from losses import UncertaintyLoss
 
 class SSL_Trainer(object):
     def __init__(self, model, ssl_data, data_root, device='cuda', save_root="", checkpoint_path=None, fine_tune="",
-                 name=None, train_data='cifar10'):
+                 distribution=None, train_data='cifar10'):
 
         super().__init__()
         # Define device
@@ -20,7 +19,8 @@ class SSL_Trainer(object):
 
         self.train_data = train_data
         self.data_root = data_root
-        self.name = name
+        self.distribution = distribution
+
 
 
         # Init
@@ -181,8 +181,8 @@ class SSL_Trainer(object):
                 self.tb_logger.add_scalar('kappa/kappa_max', torch.max(self.model.kappa), epoch)
 
                 with torch.no_grad():
-                    V = Validate(data=data_val, in_channel=in_chan, model=self.model, epoch=epoch, last_epoch=False, name=self.name,
-                                     oob_data=None, oob_test=False, device=self.device, train_data=self.train_data)
+                    V = Validate(data=data_val, distribution=self.distribution, model=self.model, epoch=epoch,
+                                 last_epoch=False, oob_data=None, oob_test=False)
 
                     auroc, recall, knn, cor_corrupted, p_corrupted = V._get_metrics()
                     self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
@@ -208,17 +208,14 @@ class SSL_Trainer(object):
             if epoch == num_epochs - 1:
                 last_epoch = True
 
-                V = Validate(data=data_val, in_channel=in_chan, model=self.model, epoch=epoch, last_epoch=True,
-                             name=self.name, oob_data=None, oob_test=False, device=self.device, plot_tsne=True,
-                             train_data=self.train_data, main=True)
+                V = Validate(data=data_val, distribution=self.distribution, model=self.model, epoch=epoch,
+                             last_epoch=True, oob_data=None, oob_test=False, plot_tsne=True)
 
-                V_100 = Validate(data=data_val, in_channel=in_chan, model=self.model, epoch=epoch,
-                                 last_epoch=last_epoch, name=self.name, device=self.device, plot_tsne=True,
-                                 oob_test=True, oob_data="cifar100", main=True, train_data=self.train_data)
+                V_100 = Validate(data=data_val, distribution=self.distribution, model=self.model, epoch=epoch,
+                                 last_epoch=last_epoch, plot_tsne=True, oob_test=True, oob_data="cifar100")
 
-                V_10 = Validate(data=data_val, in_channel=in_chan, model=self.model, epoch=epoch, last_epoch=False,
-                                name=self.name, device=self.device, plot_tsne=True, oob_test=False,
-                                oob_data=None, main=True, train_data=self.train_data)
+                V_10 = Validate(data=data_val, distribution=self.distribution, model=self.model, epoch=epoch,
+                                last_epoch=False, plot_tsne=True, oob_test=False, oob_data=None)
 
                 V_10._get_metrics()
                 Auroc_100, Recall_100, knn_100, _, _, = V_100._get_metrics()

@@ -66,7 +66,7 @@ def main(
     model.to(device)
 
     cifar10_trainer = SSL_Trainer(model, ssl_data=ssl_data, data_root=data_root, device=device, save_root=save_root,
-                                  fine_tune=fine_tune, name=artifact_dir, train_data=dataset)
+                                  fine_tune=fine_tune, distribution=distribution_type, train_data=dataset)
 
     scheduler_params = {"T_max": (train_params["num_epochs"] - train_params["warmup_epochs"]) * len(ssl_data.train_dl)}
 

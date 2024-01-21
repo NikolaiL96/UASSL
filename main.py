@@ -28,7 +28,7 @@ if __name__ == "__main__":
     parser.add_argument("--distribution", "-dist", default="powerspherical")
     parser.add_argument("--dataset", "-d", default="cifar10")
     parser.add_argument("--lr", default=6e-2, type=float)
-    parser.add_argument("--loss", "-l", default="NT-Xent")
+    parser.add_argument("--loss", "-l", default="MCNT-Xent_localmean")
     parser.add_argument("--lambda_reg", "-lam", default=0.1, type=float)
     parser.add_argument("--temperature", "-t", default=0.1, type=float)
     parser.add_argument("--batch_size", "-bs", default=128, type=int)
