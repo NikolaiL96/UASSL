@@ -26,7 +26,8 @@ class SimCLR(nn.Module):
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.backbone_net = backbone_net
         self.rep_dim = self.backbone_net.fc.in_features
-        self.backbone_net.fc = Probabilistic_Layer(distribution_type, in_features=self.rep_dim)
+        if backbone_net.name != "UncertaintyNet":
+            self.backbone_net.fc = Probabilistic_Layer(distribution_type, in_features=self.rep_dim)
         self.projector_hidden = projector_hidden
 
         if projector_hidden:
@@ -99,6 +100,6 @@ class SimCLR(nn.Module):
         if self.unc_loss:
             unc_loss = self.uncertainty_loss(dist1, dist2)
         else:
-            unc_loss = torch.zeros(1, device=self.device)
+            unc_loss = torch.Tensor(0, device=self.device)
 
         return ssl_loss, var_reg, unc_loss

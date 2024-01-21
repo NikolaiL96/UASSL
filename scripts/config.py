@@ -36,6 +36,7 @@ def my_config():
     loss = None
     lambda_reg = 0.01
     temperature = 0.05
+    n_mc = 16
     name = ""
     slug = "",
     fine_tuned = False,

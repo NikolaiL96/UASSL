@@ -32,9 +32,9 @@ if __name__ == "__main__":
     parser.add_argument("--lambda_reg", "-lam", default=0.1, type=float)
     parser.add_argument("--temperature", "-t", default=0.1, type=float)
     parser.add_argument("--batch_size", "-bs", default=64, type=int)
-    parser.add_argument("--network", "-n", default="resnet18", type=str)
+    parser.add_argument("--network", "-n", default="uncertainty_net", type=str)
     parser.add_argument("--projector", "-pr", default=True, type=str2bool)
-    parser.add_argument("--n_samples", "-ns", default=16, type=int)
+    parser.add_argument("--n_mc", default=16, type=int)
     parser.add_argument("--fine_tuned", default=False, type=str2bool)
     parser.add_argument("--lambda_bt", "-lbt", default=0.005, type=float)
     parser.add_argument("--unc_loss", "-ul", default=False, type=str2bool)
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         path = "./saved_runs/"
 
     if args.projector:
-        if args.method == "BarlowTwin":
+        if args.method == "BarlowTwins":
             projector = (2048, 2048, 1024)
         else:
             projector = (2048, 2048, 256)
@@ -63,8 +63,9 @@ if __name__ == "__main__":
 
     if args.method == "SimCLR":
         method_params = {"projector_hidden": projector, "loss": args.loss, "lambda_reg": args.lambda_reg,
-                         "temperature": args.temperature, "unc_loss": args.unc_loss, "lambda_unc": args.lambda_unc}
-    elif args.method == "BarlowTwin":
+                         "temperature": args.temperature, "unc_loss": args.unc_loss, "lambda_unc": args.lambda_unc,
+                         "n_mc": args.n_mc}
+    elif args.method == "BarlowTwins":
         method_params = {"projector_hidden": projector, "lambda_bt": args.lambda_bt, "lambda_reg": args.lambda_reg,
                          "unc_loss": args.unc_loss, "lambda_unc": args.lambda_unc}
 
@@ -91,6 +92,7 @@ if __name__ == "__main__":
                   "fine_tune": args.fine_tuned,
                   "lambda_unc": args.lambda_unc,
                   "path": path,
-                  "data_root": data_root}
+                  "data_root": data_root,
+                  "n_mc": args.n_mc}
 
     ex.run(named_configs=[args.method], config_updates=param_dict)

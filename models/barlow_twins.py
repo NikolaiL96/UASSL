@@ -25,7 +25,10 @@ class BarlowTwins(nn.Module):
         super().__init__()
 
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        self.backbone_net.fc = Probabilistic_Layer(distribution_type, self.repre_dim)
+
+        if backbone_net.name != "UncertaintyNet":
+            self.backbone_net.fc = Probabilistic_Layer(distribution_type, in_features=self.rep_dim)
+
         self.distribution_type = distribution_type
 
         self.unc_loss = unc_loss

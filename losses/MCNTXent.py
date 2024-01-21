@@ -45,13 +45,17 @@ class MCNTXent(nn.Module):
 
     def forward(self, p1, p2):
         n_mc, n_batch, _ = p1.shape
+
+        if self.normalize:
+            p1, p2 = F.normalize(p1, dim=-1), F.normalize(p2, dim=-1)
+
         z = torch.cat([p1, p2], dim=1)
 
         if self.method == "local":
             mask_self, mask_pos = self.mask(n_batch, n_mc)
 
             sim_mat = torch.bmm(z, z.permute(0, 2, 1))
-            sim_mat = sim_mat.masked_fill_(mask_self, -9e15) / self.temperature
+            sim_mat = sim_mat.masked_fill_(mask_self, -9e6) / self.temperature
 
             pos = sim_mat[mask_pos].view(n_mc, 2 * n_batch)
 

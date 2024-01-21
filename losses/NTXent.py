@@ -28,9 +28,7 @@ class NTXent(nn.Module):
         sim_mat = torch.matmul(z, z.T)
 
         mask_pos = self._mask(n_batch)
-        sim_mat = sim_mat.fill_diagonal_(-9e15)
-
-        sim_mat = sim_mat / self.temperature
+        sim_mat = sim_mat.fill_diagonal_(-9e6) / self.temperature
 
         loss = torch.logsumexp(sim_mat, dim=-1) - sim_mat[mask_pos]
         return loss.mean()
