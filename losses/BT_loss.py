@@ -5,11 +5,11 @@ import torch.nn.functional as F
 
 class BT_Loss(nn.Module):
 
-    def __init__(self, projector_hidden):
+    def __init__(self, projector_hidden, rep_dim):
         super().__init__()
 
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        self.bn = nn.BatchNorm1d(projector_hidden[-1] if projector_hidden else self.repre_dim,
+        self.bn = nn.BatchNorm1d(projector_hidden[-1] if projector_hidden else rep_dim,
                                  affine=False)
 
     def _off_diagonal(self, x):

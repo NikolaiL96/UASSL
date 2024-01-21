@@ -37,7 +37,6 @@ class BarlowTwins(nn.Module):
         self.lambda_bt = lambda_bt
         self.backbone_net = backbone_net
 
-
         # Define projector
         if projector_hidden:
             self.projector = MLP(self.rep_dim, projector_hidden, bias=False, batchnorm_last=True)
@@ -45,9 +44,10 @@ class BarlowTwins(nn.Module):
             self.projector = nn.Identity()
 
         if loss == "BT_Loss":
-            self.loss_fn = BT_Loss(projector_hidden)
-
-        print(f"We use the {loss}.")
+            self.loss_fn = BT_Loss(projector_hidden, self.rep_dim)
+            print(f"We use the {loss}.")
+        else:
+            raise ValueError("Specify a correct loss.")
 
         # Verbose
         print(f"We initialize BarlowTwins with {self.rep_dim} dimensions and a {distribution_type} distribution")
