@@ -26,6 +26,7 @@ class BarlowTwins(nn.Module):
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.backbone_net = backbone_net
         self.rep_dim = self.backbone_net.fc.in_features
+        self.kappa = None
 
         if backbone_net.name != "UncertaintyNet":
             self.backbone_net.fc = Probabilistic_Layer(distribution_type, in_features=self.rep_dim)
@@ -34,7 +35,6 @@ class BarlowTwins(nn.Module):
 
         self.lambda_bt = lambda_bt
         self.lambda_unc = lambda_unc
-        self.backbone_net = backbone_net
 
         # Define projector
         if projector_hidden:
@@ -64,7 +64,7 @@ class BarlowTwins(nn.Module):
         dist1 = self.backbone_net(x1)
         dist2 = self.backbone_net(x2)
 
-        BarlowTwins.kappa = torch.mean(torch.cat([dist1.scale, dist2.scale], dim=0), dim=-1)
+        self.kappa = torch.mean(torch.cat([dist1.scale, dist2.scale], dim=0), dim=-1)
 
         # Get Sample Projections
         p1 = self.projector(dist1.loc)

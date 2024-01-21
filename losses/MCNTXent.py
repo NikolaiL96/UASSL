@@ -20,10 +20,10 @@ class MCNTXent(nn.Module):
             mask_pos = torch.eye(B)
             mask_pos = mask_pos.roll(shifts=n_batch, dims=0)
             mask_pos = mask_pos.to(bool)
-            mask_pos = mask_pos.unsqueeze(0).repeat(n_mc, 1, 1)
+            mask_pos = mask_pos.unsqueeze(0).expand(n_mc, 1, 1)
 
             mask_self = torch.eye(2 * n_batch, dtype=torch.bool, device=self.device)
-            mask_self = mask_self.unsqueeze(0).repeat(n_mc, 1, 1)
+            mask_self = mask_self.unsqueeze(0).expand(n_mc, 1, 1)
 
             return mask_self, mask_pos
 

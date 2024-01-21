@@ -3,7 +3,6 @@ import torch
 from distributions import powerspherical
 
 
-
 class KL_Loss(nn.Module):
 
     def __init__(self, distribution: str, temperature: float = 0.01):
@@ -19,15 +18,15 @@ class KL_Loss(nn.Module):
         mc = p.rsample((n_mc,))  # [n_mc, n_batch, n_feats]
         m = torch.einsum("ib, njb -> nij", q.loc, mc)  # [n_mc, n_batch, n_batch]
 
-        E_q = q.log_normalizer() + q.scale * torch.mean(torch.log(1 + m), dim=0)
+        E_q = q.log_normalizer() + q.scale * torch.mean(torch.log1p(m), dim=0)
         kl = - H_p[None] - E_q  # [n_batch, n_batch]
         return kl
 
     def kl_two_normals(self, mu1, mu2, var1, var2):
 
         if var1.dim() == 1:
-            var1 = var1.unsqueeze(1).repeat(1, mu1.shape[1])
-            var2 = var2.unsqueeze(1).repeat(1, mu1.shape[1])
+            var1 = var1.unsqueeze(1).expand(1, mu1.shape[1])
+            var2 = var2.unsqueeze(1).expand(1, mu1.shape[1])
 
         mu1, mu2 = mu1.unsqueeze(1), mu2.unsqueeze(0)
         logvar1, logvar2 = torch.log(var1).unsqueeze(1), torch.log(var2).unsqueeze(0)
@@ -38,11 +37,10 @@ class KL_Loss(nn.Module):
                               dim=-1)
         return kld
 
-    def _mask(self, n_batch):
-        mask_pos = torch.eye(2 * n_batch)
-        mask_pos = mask_pos.roll(shifts=n_batch, dims=0)
-        mask_pos = mask_pos.to(bool)
-        return mask_pos.to(self.device)
+    def mask(self, n_batch):
+        mask_self = torch.eye(2 * n_batch, dtype=torch.bool, device=self.device)
+        mask_pos = mask_self.roll(shifts=n_batch, dims=1)
+        return mask_pos, mask_self
 
     def forward(self, p1, p2):
         n_batch = p1.loc.shape[0]
@@ -57,10 +55,10 @@ class KL_Loss(nn.Module):
         elif "normal" in self.distribution:
             sim_mat = self.kl_two_normals(loc, loc, scale, scale)
 
-        mask_pos = self._mask(n_batch)
-        sim_mat = sim_mat.fill_diagonal_(-9e15)
+        mask_pos, mask_self = self.mask(n_batch)
+        sim_mat[mask_self] = -9e6
 
-        sim_mat = sim_mat * self.temperature
+        sim_mat *= self.temperature
         loss = sim_mat[mask_pos] - torch.logsumexp(sim_mat, dim=-1)
 
         return torch.mean(loss)

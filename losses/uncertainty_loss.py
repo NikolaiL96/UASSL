@@ -16,7 +16,6 @@ class UncertaintyLoss(nn.Module):
 
         z1, z2 = F.normalize(z1, dim=-1), F.normalize(z2, dim=-1)
 
-        s = torch.matmul(z1, z2.T)
         sim = torch.diag(torch.matmul(z1, z2.T))
 
         unc = torch.cat([dist1.scale, dist2.scale], dim=0)

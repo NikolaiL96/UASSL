@@ -37,7 +37,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_mc", default=16, type=int)
     parser.add_argument("--fine_tuned", default=False, type=str2bool)
     parser.add_argument("--lambda_bt", "-lbt", default=0.005, type=float)
-    parser.add_argument("--lambda_unc", "-lu", default=0., type=float)
+    parser.add_argument("--lambda_unc", "-lu", default=0.1, type=float)
     parser.add_argument("--run_final", "-rf", default=False, type=str2bool)
 
     args = parser.parse_args()
