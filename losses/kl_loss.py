@@ -22,6 +22,25 @@ class KL_Loss(nn.Module):
         kl = - H_p[None] - E_q  # [n_batch, n_batch]
         return kl
 
+    def kl_two_ps_mc(self, p, q, n_mc=10000, chunk=10):
+        # Version that calculates the log-term of the KL divergence in chunks for memory optimisation.
+        H_p = p.entropy()
+
+        log_term_chunks = []
+        for i in range(0, n_mc, 10):
+            mc = p.rsample((chunk,))  # [chunk_size, n_batch, n_feats]
+            m = torch.einsum("ib, njb -> nij", q.loc, mc)  # [chunk_size, n_batch, n_batch]
+
+            # Compute E_q for the chunk and store it
+            log_term_chunk = torch.mean(torch.log1p(m), dim=0)
+            log_term_chunks.append(log_term_chunk)
+
+        log_term = torch.mean(torch.stack(log_term_chunks), dim=0)
+        E_q = q.log_normalizer() + q.scale * log_term
+
+        kl = - H_p[None] - E_q  # [n_batch, n_batch]
+        return kl
+
     def kl_two_normals(self, mu1, mu2, var1, var2):
 
         if var1.dim() == 1:
@@ -50,7 +69,7 @@ class KL_Loss(nn.Module):
 
         if "powerspherical" in self.distribution:
             p = q = powerspherical.PowerSpherical(loc, scale)
-            sim_mat = self.kl_two_powerspherical_mc(p, q)
+            sim_mat = self.kl_two_ps_mc(p, q)
 
         elif "normal" in self.distribution:
             sim_mat = self.kl_two_normals(loc, loc, scale, scale)
