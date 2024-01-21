@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from distributions import Probabilistic_Layer, Probabilistic_Regularizer
 from .utils import MLP
-from losses import MCNTXent, NTXent, KL_Loss, KL_PS_Loss, UncertaintyLoss
+from losses import MCNTXent, NTXent, KL_Loss, UncertaintyLoss
 
 
 class SimCLR(nn.Module):
