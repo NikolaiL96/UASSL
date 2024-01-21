@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 
 
-class InfoNCE(nn.Module):
+class NTXent(nn.Module):
 
     def __init__(self, temperature: float = 0.1, normalize: bool = True):
         super().__init__()

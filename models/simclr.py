@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from distributions import Probabilistic_Layer, Probabilistic_Regularizer
 from .utils import MLP
-from losses import MCInfoNCE, InfoNCE, KL_Loss, KL_PS_Loss, UncertaintyLoss
+from losses import MCNTXent, NTXent, KL_Loss, KL_PS_Loss, UncertaintyLoss
 
 
 class SimCLR(nn.Module):
@@ -18,7 +18,8 @@ class SimCLR(nn.Module):
             distribution_type: str = None,
             lambda_reg: float = 1.0,
             unc_loss: bool = False,
-            lambda_unc: float = 0.001
+            lambda_unc: float = 0.001,
+            n_mc: int = 16
     ):
         super().__init__()
 
@@ -46,8 +47,10 @@ class SimCLR(nn.Module):
         else:
             print(f"No projector is used.")
 
-        if self.loss == "InfoNCE":
-            self.loss_fn = InfoNCE(temperature)
+        if self.loss == "NT-Xent":
+            self.loss_fn = NTXent(temperature)
+        elif self.loss == "MCNT-Xent":
+            self.loss_fn = MCNTXent(temperature, n_mc)
         elif self.loss == "KL_Loss":
             self.loss_fn = KL_Loss(temperature)
         elif self.loss == "KL_PS_Loss":
