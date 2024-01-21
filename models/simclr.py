@@ -50,7 +50,7 @@ class SimCLR(nn.Module):
         if self.loss == "NT-Xent":
             self.loss_fn = NTXent(temperature)
         elif self.loss == "MCNT-Xent":
-            self.loss_fn = MCNTXent(temperature, n_mc)
+            self.loss_fn = MCNTXent(loss, temperature, n_mc)
         elif self.loss == "KL_Loss":
             self.loss_fn = KL_Loss(temperature)
         elif self.loss == "KL_PS_Loss":

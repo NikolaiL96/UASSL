@@ -2,38 +2,90 @@ from torch import nn
 import torch
 import torch.nn.functional as F
 
-class MCNTXent(nn.Module):
+def get_configuration(name):
+    if "simple" in name:
+        method = "simple"
+    elif "pairwise" in name:
+        method = "pairwise"
 
-    def __init__(self, temperature: float = 0.1, n_mc: int = 16):
+    if "mean" in name:
+        reduction = "mean"
+    elif "min" in name:
+        reduction = "min"
+
+    return method, reduction
+
+class MCNTXent(nn.Module):
+    def __init__(self, loss: str, temperature: float = 0.1, n_mc: int = 16):
         super().__init__()
 
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-
         self.temperature = temperature
         self.n_mc = n_mc
 
+        method, reduction = get_configuration(loss)
 
-    def _mask(self, n_batch, n_samples):
+    def _mask(self, n_batch, n_mc):
         B = 2 * n_batch
         if self.method == "simple":
             mask_pos = torch.eye(B)
             mask_pos = mask_pos.roll(shifts=n_batch, dims=0)
             mask_pos = mask_pos.to(bool)
-            mask = mask_pos.unsqueeze(0).repeat(n_samples, 1, 1)
+            mask_pos = mask_pos.unsqueeze(0).repeat(n_mc, 1, 1)
+
+            return mask_pos
 
         elif self.method == "pairwise":
-            for i in range(0, n_samples):
-                h = B * n_samples - B * i
-                m1 = torch.diag(torch.ones(h), diagonal=B * i)
-                m2 = torch.diag(torch.ones(h - n_batch), diagonal=B * i + n_batch)
-                try:
-                    m = torch.add(m1, m2)
-                    mask = torch.add(mask, m)
-                except:
-                    mask = torch.add(m1, m2)
-            mask = torch.add(mask, torch.flip(mask, dims=[0, 1]))
-            mask = mask.fill_diagonal_(0)
-            mask = torch.gt(mask, 0).to(torch.bool)
+            b = 2 * n_batch
+            s = b * n_mc
+            mask_self = torch.zeros([s, s])
+            mask_pos = torch.zeros([s, s])
+
+            for i in range(0, n_mc):
+                mask_self += torch.diag(torch.ones(b * (n_mc - i)), i * b)
+                mask_pos += torch.diag(torch.ones(b * (n_mc - i) - n_batch), i * b + n_batch)
+
+            mask_self = mask_self + mask_self.T
+            mask_pos = mask_pos + mask_pos.T
+            mask_neg = mask_pos + mask_self
+
+            return mask_self.to(bool), mask_pos.to(bool), ~mask_neg.to(bool)
+
+
+
+class MCNTXent_alt(nn.Module):
+
+    def __init__(self, temperature: float = 0.1, n_mc: int = 16):
+        super().__init__()
+
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.temperature = temperature
+        self.n_mc = n_mc
+
+
+    def _mask(self, n_batch, n_mc):
+        B = 2 * n_batch
+        if self.method == "simple":
+            mask_pos = torch.eye(B)
+            mask_pos = mask_pos.roll(shifts=n_batch, dims=0)
+            mask_pos = mask_pos.to(bool)
+            mask = mask_pos.unsqueeze(0).repeat(n_mc, 1, 1)
+
+        elif self.method == "pairwise":
+            b = 2 * n_batch
+            s = b * n_mc
+            mask_self = torch.zeros([s, s])
+            mask_pos = torch.zeros([s, s])
+
+            for i in range(0, n_mc):
+                mask_self += torch.diag(torch.ones(b * (n_mc - i)), i * b)
+                mask_pos += torch.diag(torch.ones(b * (n_mc - i) - n_batch), i * b + n_batch)
+
+            mask_self = mask_self + mask_self.T
+            mask_pos = mask_pos + mask_pos.T
+            mask_neg = mask_pos + mask_self
+
+            return mask_self.to(bool), mask_pos.to(bool), ~mask_neg.to(bool)
 
         return mask.to(self.device)
 
@@ -50,7 +102,7 @@ class MCNTXent(nn.Module):
             sim_mat = torch.bmm(embedding, embedding.permute(0, 2, 1))
             mask = self._mask(n_batch, self.n_samples)
 
-            mask_diag = torch.eye(2*n_batch, dtype=torch.bool, device=self.device)
+            mask_diag = torch.eye(2 * n_batch, dtype=torch.bool, device=self.device)
             mask_diag = mask_diag.unsqueeze(0).repeat(self.n_samples, 1, 1)
 
             sim_mat = sim_mat.masked_fill_(mask_diag, -9e15)
@@ -93,7 +145,7 @@ class MCNTXent(nn.Module):
             else:
                 sim_mat = sim_mat / self.temperature
 
-            positives = sim_mat[mask_pos].view(self.n_samples * 2*n_batch, -1)
+            positives = sim_mat[mask_pos].view(self.n_samples * 2 * n_batch, -1)
 
             if self.reduction == "min":
                 min_positives, _ = torch.min(positives, dim=-1)
@@ -105,10 +157,10 @@ class MCNTXent(nn.Module):
                 k_norm = F.softmax(kappa, dim=0)
                 loss = torch.repeat_interleave(k_norm.squeeze(1), self.n_samples) * loss
                 loss = torch.sum(loss) / self.n_samples
-            #elif self.uncertainty_weighting == "temperature":
-                #max2 = torch.max(kappa)
-                #kappa2 = torch.div(kappa, max2)
-                #kappa3 = 1 - kappa2
+            # elif self.uncertainty_weighting == "temperature":
+            # max2 = torch.max(kappa)
+            # kappa2 = torch.div(kappa, max2)
+            # kappa3 = 1 - kappa2
 
             else:
                 loss = loss.mean()
