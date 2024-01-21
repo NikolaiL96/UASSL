@@ -25,41 +25,20 @@ class SimCLR(nn.Module):
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.backbone_net = backbone_net
         self.rep_dim = self.backbone_net.fc.in_features
+        self.kappa = None
+
         if backbone_net.name != "UncertaintyNet":
             self.backbone_net.fc = Probabilistic_Layer(distribution_type, in_features=self.rep_dim)
         self.projector_hidden = projector_hidden
 
-        if projector_hidden:
-            self.projector = MLP(self.rep_dim, projector_hidden, batchnorm_last=True, bias=False)
-        else:  # Use no projector
-            self.projector = nn.Identity()
-
         self.loss = loss
-
         self.temperature = temperature
         self.lambda_unc = lambda_unc
         self.n_mc = n_mc
         self.distribution_type = distribution_type
 
-        # Verbose
-        print(f"We initialize SimCLR with {self.rep_dim} dimensions and a {distribution_type} distribution.")
-
-        if projector_hidden:
-            print(f"The projector has {projector_hidden} hidden units")
-        else:
-            print(f"No projector is used.")
-
-        if self.loss == "NT-Xent":
-            self.loss_fn = NTXent(temperature)
-        elif "MCInfoNCE" in self.loss:
-            self.loss_fn = MCNTXent(loss, temperature, n_mc)
-        elif self.loss == "KL_Loss":
-            self.loss_fn = KL_Loss(self.distribution_type, temperature)
-        else:
-            raise ValueError("Specify a correct loss.")
-
-        print(f"We use the {self.loss}. Temperature set to {temperature}")
-
+        self.initialize_projector()
+        self.initialize_loss(temperature, n_mc)
         # Regularizer for the generated distribution
         self.regularizer = Probabilistic_Regularizer(distribution_type, lambda_reg)
 
@@ -67,12 +46,41 @@ class SimCLR(nn.Module):
             self.uncertainty_loss = UncertaintyLoss(lambda_unc)
             print("We use the Uncertainty Loss")
 
+        # Verbose
+        print(f"We initialize SimCLR with {self.rep_dim} dimensions and a {distribution_type} distribution.")
+
+    def initialize_projector(self):
+        if self.projector_hidden:
+            self.projector = MLP(self.rep_dim, self.projector_hidden, batchnorm_last=True, bias=False)
+            print(f"The projector has {self.projector_hidden} hidden units")
+        else:
+            self.projector = nn.Identity()
+            print("No projector is used.")
+
+    def initialize_loss(self, temperature, n_mc):
+        if self.loss == "NT-Xent":
+            self.loss_fn = NTXent(temperature)
+        elif "MCInfoNCE" in self.loss:
+            self.loss_fn = MCNTXent(self.loss, temperature, n_mc)
+        elif self.loss == "KL_Loss":
+            self.loss_fn = KL_Loss(self.distribution_type, temperature)
+        else:
+            raise ValueError("Specify a correct loss.")
+
+        print(f"We use the {self.loss}. Temperature set to {temperature}")
+
     def forward(self, x1, x2):
         dist1, dist2 = self.backbone_net(x1), self.backbone_net(x2)
+        self.kappa = torch.mean(torch.cat([dist1.scale, dist2.scale], dim=0), dim=-1)
 
+        ssl_loss = self.compute_ssl_loss(dist1, dist2)
+        var_reg = self.regularizer((dist1, dist2))
+        unc_loss = self.compute_uncertainty_loss(dist1, dist2)
+
+        return ssl_loss, var_reg, unc_loss
+
+    def compute_ssl_loss(self, dist1, dist2):
         n_batch = dist1.loc.shape[0]
-        SimCLR.kappa = torch.mean(torch.cat([dist1.scale, dist2.scale], dim=0), dim=-1)
-
         if self.loss == "NT-Xent":
             p1 = self.projector(dist1.loc)
             p2 = self.projector(dist2.loc)
@@ -93,14 +101,15 @@ class SimCLR(nn.Module):
                 pz1, pk1 = self.projector(dist1.loc, dist1.std)
                 pz2, pk2 = self.projector(dist2.loc, dist2.std)
                 ssl_loss = self.loss_fn(Normal(pz1, pk1), Normal(pz2, pk2))
-            else:
-                raise TypeError("Please use the Probabilistic Projection head with Normal distribution.")
+        else:
+            raise TypeError("Please use the Probabilistic Projection head with Normal distribution.")
 
-        var_reg = self.regularizer((dist1, dist2))
+        return ssl_loss
 
+    def compute_uncertainty_loss(self, dist1, dist2):
         if self.lambda_unc != 0.:
             unc_loss = self.uncertainty_loss(dist1, dist2)
         else:
             unc_loss = torch.Tensor(0, device=self.device)
 
-        return ssl_loss, var_reg, unc_loss
+        return unc_loss

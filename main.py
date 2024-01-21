@@ -16,6 +16,19 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
+def get_projector_settings(method, projector):
+    if projector:
+        return (2048, 2048, 1024) if method == "BarlowTwins" else (2048, 2048, 256)
+    return None
+
+def get_data_root_and_path(cluster, run_final):
+    if cluster:
+        data_root = "./data/"
+        path = "/home/lorenzni/runs_SSL_final" if run_final else "/home/lorenzni/runs_SSL"
+    else:
+        data_root = "/Users/nikolai.lorenz/Desktop/Statistik/Masterarbeit/Code/SSL_VAE/data"
+        path = "./saved_runs/"
+    return data_root, path
 
 if __name__ == "__main__":
     sys.path.append("")
@@ -28,7 +41,7 @@ if __name__ == "__main__":
     parser.add_argument("--distribution", "-dist", default="powerspherical")
     parser.add_argument("--dataset", "-d", default="cifar10")
     parser.add_argument("--lr", default=6e-2, type=float)
-    parser.add_argument("--loss", "-l", default="KL_Loss")
+    parser.add_argument("--loss", "-l", default="NT-Xent")
     parser.add_argument("--lambda_reg", "-lam", default=0.1, type=float)
     parser.add_argument("--temperature", "-t", default=0.1, type=float)
     parser.add_argument("--batch_size", "-bs", default=64, type=int)
@@ -42,23 +55,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    if args.cluster == True:
-        data_root = "./data/"
-        if args.run_final:
-            path = "/home/lorenzni/runs_SSL_final"
-        else:
-            path = "/home/lorenzni/runs_SSL"
-    else:
-        data_root = "/Users/nikolai.lorenz/Desktop/Statistik/Masterarbeit/Code/SSL_VAE/data"
-        path = "./saved_runs/"
-
-    if args.projector:
-        if args.method == "BarlowTwins":
-            projector = (2048, 2048, 1024)
-        else:
-            projector = (2048, 2048, 256)
-    else:
-        projector = None
+    data_root, path = get_data_root_and_path(args.cluster, args.run_final)
+    projector = get_projector_settings(args.method, args.projector)
 
     if args.method == "SimCLR":
         method_params = {"projector_hidden": projector, "loss": args.loss, "lambda_reg": args.lambda_reg,
