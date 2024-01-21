@@ -43,6 +43,15 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    if args.cluster == True:
+        data_root = "./data/"
+        if args.run_final:
+            path = "/home/lorenzni/runs_SSL_final"
+        else:
+            path = "/home/lorenzni/runs_SSL"
+    else:
+        data_root = "/Users/nikolai.lorenz/Desktop/Statistik/Masterarbeit/Code/SSL_VAE/data"
+
     if args.projector:
         if args.method == "BarlowTwin":
             projector = (2048, 2048, 1024)
@@ -81,7 +90,9 @@ if __name__ == "__main__":
                   "method_params": method_params,
                   "distribution_params": {"type": args.distribution},
                   "fine_tune": args.fine_tuned,
-                  "lambda_unc": args.lambda_unc}
+                  "lambda_unc": args.lambda_unc,
+                  "path": path,
+                  "data_root": data_root}
 
 
     ex.run(named_configs=[args.method], config_updates=param_dict)

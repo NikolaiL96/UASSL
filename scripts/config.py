@@ -41,7 +41,7 @@ def my_config():
     fine_tuned = False,
     lambda_unc = 0.
 
-    path = "./saved_runs/SSL_new"
+    path = "./saved_runs/"
     artifact_dir = f'{path}/{name}'  # name
     batch_size = 1024
     epochs = 800

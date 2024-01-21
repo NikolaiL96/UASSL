@@ -8,15 +8,15 @@ import random
 import numpy as np
 from trainer import SSL_Trainer
 
-from utils import get_device, SSL_CIFAR10, SSL_FashionMNIST, SSL_CIFAR100, SSL_OxfordPet, load_dataset
+from utils import get_device, load_dataset
 from utils.model_factory import ModelFactory
 
 
 @ex.capture
 def _slug(dataset, method, distribution_params, method_params):
     time = datetime.datetime.now().strftime("%I:%M%p%B%d")
-    return f"{dataset}-{method}--dist-{distribution_params['type']}--beta{distribution_params['beta']}--ID:{os.getenv('SLURM_JOB_ID')}--{time}"
-    # f"_{method_params['exclusion_mode']}"
+    return f"{dataset}-{method}--dist-{distribution_params['type']}--beta{distribution_params['beta']}" \
+           f"--ID:{os.getenv('SLURM_JOB_ID')}--{time}"
 
 
 @ex.automain
@@ -37,7 +37,6 @@ def main(
         network,
         seed,
         fine_tune,
-        last_layer_relu,
         _run,
         _log,
 ):
