@@ -33,7 +33,7 @@ class MLP(nn.Module):
 class MLP_variational(nn.Module):
     def __init__(self, in_dim: int,
                  hidden_dims: Union[int, tuple],
-                 bias: bool = True,):
+                 bias: bool = True):
         super().__init__()
 
         if isinstance(hidden_dims, int):

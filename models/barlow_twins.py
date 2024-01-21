@@ -77,6 +77,6 @@ class BarlowTwins(nn.Module):
         if self.lambda_unc != 0.:
             unc_loss = self.uncertainty_loss(dist1, dist2)
         else:
-            unc_loss = torch.zeros(1, device=self.device)
+            torch.tensor([1.0], device=self.device)
 
         return ssl_loss, var_reg, unc_loss
