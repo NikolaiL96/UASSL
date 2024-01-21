@@ -56,11 +56,9 @@ class MCNTXent(nn.Module):
             pos = sim_mat[mask_pos].view(n_mc, 2 * n_batch)
 
             if self.reduction == "mean":
-                l1 = torch.logsumexp(sim_mat, dim=-1)
-                l2 = pos
-                loss = l1 - l2
-                loss = loss.mean()
-                return loss
+                loss = torch.logsumexp(sim_mat, dim=-1) - pos
+                loss = torch.mean(loss, dim=0)
+                return loss.mean()
 
             elif self.reduction == "min":
                 pass

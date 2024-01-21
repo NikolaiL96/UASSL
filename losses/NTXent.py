@@ -11,7 +11,6 @@ class NTXent(nn.Module):
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.temperature = temperature
 
-
     def _mask(self, n_batch):
         mask_pos = torch.eye(2 * n_batch)
         mask_pos = mask_pos.roll(shifts=n_batch, dims=0)
@@ -22,7 +21,7 @@ class NTXent(nn.Module):
         n_batch, _ = p1.shape
 
         z = torch.cat([p1, p2], dim=0)
-        sim_mat = z @ z.T
+        sim_mat = torch.matmul(z, z.T)
 
         mask_pos = self._mask(n_batch)
         sim_mat = sim_mat.fill_diagonal_(-9e15)

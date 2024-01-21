@@ -21,23 +21,26 @@ from utils.utils import _find_low_and_high_images, get_cifar10h, knn_predict
 
 class Validate:
 
-    def __init__(self, data, distribution, model, epoch=None, last_epoch=False,
-                 oob_data=None, oob_test=False, plot_tsne=False):
+    def __init__(self, data, distribution, model, epoch=None, last_epoch=False, low_shot=False, plot_tsne=False):
 
 
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
         self.last_epoch = last_epoch
-        self.oob_test = oob_test
+        self.low_shot = low_shot
         self.plot_tsne = plot_tsne
 
         self.data = data
-        self.dl_kwargs = {"batch_size": 512, "shuffle": True, "num_workers": min(os.cpu_count(), 0)}
 
-        if oob_data is not None:
-            self.data_test, *_ = load_dataset(oob_data, "./data/",
-                                              augmentation_type="BYOL",
-                                              dl_kwargs=self.dl_kwargs)
+        self.dataset = str(data.test_dl.dataset).split("\n")[0].split(" ")[1]
+        if self.dataset == "cifar10":
+            oob_data = "cifar100"
+        elif self.data == "cifar100":
+            oob_data = "cifar10"
+
+        if low_shot:
+            dl_kwargs = {"batch_size": 512, "shuffle": True, "num_workers": min(os.cpu_count(), 0)}
+            self.data_test, *_ = load_dataset(oob_data, "./data/", augmentation_type="BYOL", dl_kwargs=dl_kwargs)
         else:
             self.data_test = self.data
 
@@ -220,15 +223,16 @@ class Validate:
 
     @torch.no_grad()
     def get_zero_shot_metrics(self, dataset):
+        dl_kwargs = {"batch_size": 512, "shuffle": True, "num_workers": min(os.cpu_count(), 0)}
         if dataset == "sop":
             ssl_data, _, _ = load_dataset("sop", "/home/lorenzni/data/online_products/images/", "BYOL",
-                                          dl_kwargs=self.dl_kwargs)
+                                          dl_kwargs=dl_kwargs)
         elif dataset == "cup200":
             ssl_data, _, _ = load_dataset("cup200", "/home/lorenzni/data/cub200/images", "BYOL",
-                                          dl_kwargs=self.dl_kwargs)
+                                          dl_kwargs=dl_kwargs)
         elif dataset == "cars196":
             ssl_data, _, _ = load_dataset("cars196", "/home/lorenzni/data/cars196/images", "BYOL",
-                                          dl_kwargs=self.dl_kwargs)
+                                          dl_kwargs=dl_kwargs)
 
         Recall = []
         Auroc = []

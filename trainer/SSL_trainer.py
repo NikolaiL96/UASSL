@@ -180,18 +180,14 @@ class SSL_Trainer(object):
                 self.tb_logger.add_scalar('kappa/kappa_max', torch.max(self.model.kappa), epoch)
 
                 with torch.no_grad():
-                    V = Validate(data=data_val, distribution=self.distribution, model=self.model, epoch=epoch,
-                                 last_epoch=False, oob_data=None, oob_test=False)
-                    V2 = Validate(data=self.ssl_data, distribution=self.distribution, model=self.model, epoch=epoch,
-                                 last_epoch=False, oob_data=None, oob_test=False)
+                    V = Validate(data=self.ssl_data, distribution=self.distribution, model=self.model, epoch=epoch,
+                                 last_epoch=False, low_shot=False)
 
                     auroc, recall, knn, cor_corrupted, p_corrupted = V._get_metrics()
-                    auroc2, recall2, knn2, _, _ = V._get_metrics()
                     self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
                     self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
 
                     print(f"Auroc: {auroc.item():0.3f}, Recall: {recall.item():0.3f}, knn: {knn.item():0.1f}")
-                    print(f"Auroc Shuffle: {auroc2.item():0.3f}, Recall Shuffle: {recall2.item():0.3f}, knn Shuffle: {knn2.item():0.1f}")
 
                     self.tb_logger.add_scalar('kappa/AUROC', auroc, epoch)
                     self.tb_logger.add_scalar('kappa/R@1', recall, epoch)
@@ -209,22 +205,17 @@ class SSL_Trainer(object):
 
             # Run evaluation
             if epoch == num_epochs - 1:
-                last_epoch = True
+                V = Validate(data=self.ssl_data, distribution=self.distribution, model=self.model, epoch=epoch,
+                             last_epoch=True, low_shot=False, plot_tsne=True)
 
-                V = Validate(data=data_val, distribution=self.distribution, model=self.model, epoch=epoch,
-                             last_epoch=True, oob_data=None, oob_test=False, plot_tsne=True)
+                V_low_shot = Validate(data=self.ssl_data, distribution=self.distribution, model=self.model, epoch=epoch,
+                                      last_epoch=False, plot_tsne=True, low_shot=True)
 
-                V_100 = Validate(data=data_val, distribution=self.distribution, model=self.model, epoch=epoch,
-                                 last_epoch=last_epoch, plot_tsne=True, oob_test=True, oob_data="cifar100")
+                _, _, _, cor_corrupted, p_corrupted = V._get_metrics()
+                Auroc_100, Recall_100, knn_100, = V_low_shot._get_metrics()
 
-                V_10 = Validate(data=data_val, distribution=self.distribution, model=self.model, epoch=epoch,
-                                last_epoch=False, plot_tsne=True, oob_test=False, oob_data=None)
-
-                V_10._get_metrics()
-                Auroc_100, Recall_100, knn_100, _, _, = V_100._get_metrics()
-
-                linear_acc_100 = V_100._get_linear_probing()
-                linear_acc_10 = V_10._get_linear_probing()
+                linear_acc_100 = V_low_shot._get_linear_probing()
+                linear_acc_10 = V._get_linear_probing()
 
                 cor_pearson, cor_spearman = V._get_cor()
 
@@ -233,6 +224,9 @@ class SSL_Trainer(object):
 
                 if not isinstance(cor_spearman, float):
                     cor_spearman = cor_spearman.item()
+
+                self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
+                self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
 
                 self.tb_logger.add_scalar('kappa/cor_pearson', cor_pearson, epoch)
                 self.tb_logger.add_scalar('kappa/cor_spearman', cor_spearman, epoch)
