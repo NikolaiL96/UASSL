@@ -1,8 +1,8 @@
 
 
 def get_configuration(name):
-    if "simple" in name:
-        method = "simple"
+    if "local" in name:
+        method = "local"
     elif "pairwise" in name:
         method = "pairwise"
 

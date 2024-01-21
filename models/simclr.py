@@ -72,12 +72,12 @@ class SimCLR(nn.Module):
         n_batch = dist1.loc.shape[0]
         SimCLR.kappa = torch.mean(torch.cat([dist1.scale, dist2.scale], dim=0), dim=-1)
 
-        if self.loss == "InfoNCE":
+        if self.loss == "NT-Xent":
             p1 = self.projector(dist1.loc)
             p2 = self.projector(dist2.loc)
             ssl_loss = self.loss_fn(p1, p2)
 
-        elif self.loss in "MCNT-Xent":
+        elif self.loss == "MCNT-Xent":
             z1 = dist1.rsample((self.n_mc,)).view(n_batch * self.n_mc, -1)
             z2 = dist2.rsample((self.n_mc,)).view(n_batch * self.n_mc, -1)
 
@@ -88,13 +88,12 @@ class SimCLR(nn.Module):
         elif self.loss == "KL_Loss":
             if not self.projector_hidden:
                 ssl_loss = self.loss_fn(dist1, dist2)
-            else:
+            elif self.projector and self.distribution_type == "normal":
                 pz1, pk1 = self.projector(dist1.loc, dist1.std)
                 pz2, pk2 = self.projector(dist2.loc, dist2.std)
                 ssl_loss = self.loss_fn(Normal(pz1, pk1), Normal(pz2, pk2))
-
-        elif self.loss == "KL_PS_Loss":
-            ssl_loss = self.loss_fn(dist1, dist2)
+            else:
+                raise TypeError("Please use the Probabilistic Projection head with Normal distribution.")
 
         var_reg = self.regularizer((dist1, dist2))
 

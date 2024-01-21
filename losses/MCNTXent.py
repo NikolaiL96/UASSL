@@ -47,13 +47,23 @@ class MCNTXent(nn.Module):
         n_mc, n_batch, _ = p1.shape
         z = torch.cat([p1, p2], dim=1)
 
-        if self.method == "simple":
+        if self.method == "local":
             mask_self, mask_pos = self.mask(n_batch, n_mc)
 
             sim_mat = torch.bmm(z, z.permute(0, 2, 1))
             sim_mat = sim_mat.masked_fill_(mask_self, -9e15) / self.temperature
 
             pos = sim_mat[mask_pos].view(self.n_samples, 2 * n_batch)
+
+            if self.reduction == "mean":
+                loss = torch.logsumexp(sim_mat, dim=-1) - pos
+
+        if self.method == "pairwise":
+            mask_self, mask_pos, mask_neg = self.mask(n_batch, n_mc)
+            z = z.view(self.n_samples * 2 * n_batch, -1)
+
+            sim_mat = z @ z.T
+            sim_mat.masked_fill_(mask_self, -9e15) / self.temperature
 
         #
         #
@@ -77,15 +87,7 @@ class MCNTXent(nn.Module):
         #     mask_pos = self._mask(n_batch, self.n_samples)
         #
         #     sim_mat = sim_mat.fill_diagonal_(-9e15)
-        #
-        #     if self.uncertainty_weighting == "temperature":
-        #         if self.uncertainty_weighting == "temperature" and kappa is None and self.method != "pairwise":
-        #             raise ValueError("Use pairwise method and/or provide kappa.")
-        #         else:
-        #             k_norm = F.softmax(kappa, dim=0)
-        #             sim_mat = sim_mat / torch.repeat_interleave(k_norm.squeeze(1), self.n_samples)
-        #     else:
-        #         sim_mat = sim_mat / self.temperature
+
         #
         #     positives = sim_mat[mask_pos].view(self.n_samples * 2 * n_batch, -1)
         #
