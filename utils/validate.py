@@ -118,20 +118,19 @@ class Validate:
             train_features += (F.normalize(feats, dim=1),)
             train_labels += (labels,)
 
-        train_features = torch.cat(train_features).t().contiguous()
+        train_features = torch.cat(train_features)
         train_labels = torch.cat(train_labels)
 
         return train_features, train_labels
 
     @torch.no_grad()
-    def _get_metrics(self, knn_k: int = 200, knn_t: float = 0.1, num_classes=None):
+    def _get_metrics(self, knn_k: int = 200, knn_t: float = 0.1):
 
         test_features, test_labels, test_uncertainty, test_loc = (), (), (), ()
         train_features, train_labels = self.extract_train(self.data.train_eval_dl)
         total_top1, total_num = 0.0, 0
 
-        if num_classes is None:
-            num_classes = len(set(train_labels.cpu().numpy().tolist()))
+        num_classes = len(set(train_labels.cpu().numpy().tolist()))
 
         for x_test, labels_test in self.data_test.test_dl:
             x_test = x_test.to(self.device)
