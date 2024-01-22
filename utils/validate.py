@@ -152,8 +152,9 @@ class Validate:
 
         recall, auroc = self._get_roc(torch.cat(test_loc), torch.cat(test_labels), torch.cat(test_uncertainty))
 
-        p_corrupted, cor_corrupted = self.corrupted_img() if self.last_epoch else (torch.zeros(1), torch.zeros(1))
-        knn = torch.tensor(total_top1 / total_num * 100) if not self.low_shot else torch.zeros(1)
+        p_corrupted, cor_corrupted = self.corrupted_img() if self.last_epoch \
+            else (torch.zeros(1, device=self.device), torch.zeros(1, device=self.device))
+        knn = torch.tensor(total_top1 / total_num * 100) if not self.low_shot else torch.zeros(1, device=self.device)
 
         if self.plot_tsne:
             dataset = str(self.data_test.test_dl.dataset).split("\n")[0].split(" ")[1]

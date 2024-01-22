@@ -83,8 +83,8 @@ class SimCLR(nn.Module):
     def compute_ssl_loss(self, dist1, dist2):
         n_batch = dist1.loc.shape[0]
         if self.loss == "NT-Xent":
-            p1 = self.projector(dist1.loc)
-            p2 = self.projector(dist2.loc)
+            p1 = self.projector(dist1.rsample())
+            p2 = self.projector(dist2.rsample())
             return self.loss_fn(p1, p2)
 
         if "MCNT-Xent" in self.loss:
