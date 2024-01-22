@@ -16,7 +16,7 @@ import os
 from utils import load_dataset
 from utils import Linear_Protocoler
 
-from utils.utils import _find_low_and_high_images, get_cifar10h, knn_predict
+from utils.utils import get_cifar10h, knn_predict
 
 
 class Validate:

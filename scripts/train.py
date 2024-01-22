@@ -33,6 +33,7 @@ def main(
         lambda_reg,
         optim_params,
         train_params,
+        eval_params,
         dataset,
         network,
         seed,
@@ -74,5 +75,6 @@ def main(
     cifar10_trainer.train(
         **train_params,
         optim_params=optim_params,
-        scheduler_params=scheduler_params
+        scheduler_params=scheduler_params,
+        eval_params=eval_params,
     )

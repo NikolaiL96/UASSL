@@ -1,13 +1,12 @@
 from os import path
-import os
 import time
-from torch.utils.tensorboard import SummaryWriter
 
 import torch
 from torch.optim import lr_scheduler
+from torch.utils.tensorboard import SummaryWriter
 
-from utils import check_existing_model, Validate
-from utils import load_dataset
+from utils import check_existing_model, Validate, Linear_Protocoler
+
 
 class SSL_Trainer(object):
     def __init__(self, model, ssl_data, data_root, device='cuda', save_root="", checkpoint_path=None, fine_tune="",
@@ -44,6 +43,17 @@ class SSL_Trainer(object):
 
         # Define data
         self.data = ssl_data
+
+    def evaluate(self, num_epochs, lr, milestones=None, linear_eval=False):
+        # Linear protocol
+        evaluator = Linear_Protocoler(self.model.backbone_net, repre_dim=self.model.rep_dim,
+                                      variational=True, device=self.device)
+        # knn accuracy
+        knn = evaluator.knn_accuracy(self.data.train_eval_dl, self.data.test_dl)
+
+        # R@1 and R-AUROC
+        recall, auc = evaluator.recall_auroc(self.data.train_eval_dl, self.data.test_dl)
+        return auc, recall, knn
 
     def train_epoch(self, epoch_id):
         # make sure that things get set properly
@@ -109,7 +119,7 @@ class SSL_Trainer(object):
             print(f"Loading time {loading_time:.1f}s, Forward Time {forward_time:.1f}s, Backward Time {backward_time:.1f}s")
 
 
-    def train(self, num_epochs, optimizer, scheduler, optim_params, scheduler_params,
+    def train(self, num_epochs, optimizer, scheduler, optim_params, scheduler_params, eval_params,
               warmup_epochs=10, iter_scheduler=True, evaluate_at=[100, 200, 400], verbose=True):
 
         # Check and Load existing model
@@ -177,12 +187,15 @@ class SSL_Trainer(object):
                 self.tb_logger.add_scalar('kappa/kappa_max', torch.max(self.model.kappa), epoch)
 
                 with torch.no_grad():
-                    V = Validate(data=self.ssl_data, distribution=self.distribution, model=self.model, epoch=epoch,
-                                 last_epoch=False, low_shot=False)
+                    # V = Validate(data=self.ssl_data, distribution=self.distribution, model=self.model, epoch=epoch,
+                    #              last_epoch=False, low_shot=False)
+                    #
+                    #
+                    # auroc, recall, knn, cor_corrupted, p_corrupted = V._get_metrics()
+                    # self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
+                    # self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
 
-                    auroc, recall, knn, cor_corrupted, p_corrupted = V._get_metrics()
-                    self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
-                    self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
+                    recall, auroc, knn = self.evaluate(**eval_params)
 
                     print(f"Auroc: {auroc.item():0.3f}, Recall: {recall.item():0.3f}, knn: {knn.item():0.1f}")
 
@@ -193,6 +206,7 @@ class SSL_Trainer(object):
             if verbose:
                 print(f'Epoch: {epoch}, Loss: {self.loss_hist[-1]:0.4f}, AUROC: {auroc:0.3f}, Time epoch: {time.time() - start_time:0.1f}',
                       end='')
+                print(self.device)
                 if self.device.type == 'cuda':
                     print(f', GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
                           f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')
@@ -201,58 +215,58 @@ class SSL_Trainer(object):
                       f'Uncertainty Loss: {self.unc_loss_hist[-1]:0.4f}')
 
             # Run evaluation
-            if epoch == num_epochs - 1:
-                V = Validate(data=self.ssl_data, distribution=self.distribution, model=self.model, epoch=epoch,
-                             last_epoch=True, low_shot=False, plot_tsne=True)
-
-                V_low_shot = Validate(data=self.ssl_data, distribution=self.distribution, model=self.model, epoch=epoch,
-                                      last_epoch=False, plot_tsne=True, low_shot=True)
-
-                _, _, _, cor_corrupted, p_corrupted = V._get_metrics()
-                Auroc_100, Recall_100, knn_100, _, _ = V_low_shot._get_metrics()
-
-                linear_acc_100 = V_low_shot._get_linear_probing()
-                linear_acc_10 = V._get_linear_probing()
-
-                cor_pearson, cor_spearman = V._get_cor()
-
-                if not isinstance(cor_pearson, float):
-                    cor_pearson = cor_pearson.item()
-
-                if not isinstance(cor_spearman, float):
-                    cor_spearman = cor_spearman.item()
-
-                self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
-                self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
-
-                self.tb_logger.add_scalar('kappa/cor_pearson', cor_pearson, epoch)
-                self.tb_logger.add_scalar('kappa/cor_spearman', cor_spearman, epoch)
-
-                self.tb_logger.add_scalar('ZeroShot/AUROC_CIFAR100', Auroc_100, epoch)
-                self.tb_logger.add_scalar('ZeroShot/R@1_CIFAR100', Recall_100, epoch)
-                self.tb_logger.add_scalar('ZeroShot/knn_CIFAR100', knn_100, epoch)
-                self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR100', linear_acc_100, epoch)
-                self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR10', linear_acc_10, epoch)
-                print(f"Low-Shot: AUROC={Auroc_100:0.4f}, R@1={Recall_100:0.3f}, KNN={knn_100.item():0.1f}")
+            # if epoch == num_epochs - 1:
+            #     V = Validate(data=self.ssl_data, distribution=self.distribution, model=self.model, epoch=epoch,
+            #                  last_epoch=True, low_shot=False, plot_tsne=True)
+            #
+            #     V_low_shot = Validate(data=self.ssl_data, distribution=self.distribution, model=self.model, epoch=epoch,
+            #                           last_epoch=False, plot_tsne=True, low_shot=True)
+            #
+            #     _, _, _, cor_corrupted, p_corrupted = V._get_metrics()
+            #     Auroc_100, Recall_100, knn_100, _, _ = V_low_shot._get_metrics()
+            #
+            #     linear_acc_100 = V_low_shot._get_linear_probing()
+            #     linear_acc_10 = V._get_linear_probing()
+            #
+            #     cor_pearson, cor_spearman = V._get_cor()
+            #
+            #     if not isinstance(cor_pearson, float):
+            #         cor_pearson = cor_pearson.item()
+            #
+            #     if not isinstance(cor_spearman, float):
+            #         cor_spearman = cor_spearman.item()
+            #
+            #     self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
+            #     self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
+            #
+            #     self.tb_logger.add_scalar('kappa/cor_pearson', cor_pearson, epoch)
+            #     self.tb_logger.add_scalar('kappa/cor_spearman', cor_spearman, epoch)
+            #
+            #     self.tb_logger.add_scalar('ZeroShot/AUROC_CIFAR100', Auroc_100, epoch)
+            #     self.tb_logger.add_scalar('ZeroShot/R@1_CIFAR100', Recall_100, epoch)
+            #     self.tb_logger.add_scalar('ZeroShot/knn_CIFAR100', knn_100, epoch)
+            #     self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR100', linear_acc_100, epoch)
+            #     self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR10', linear_acc_10, epoch)
+            #     print(f"Low-Shot: AUROC={Auroc_100:0.4f}, R@1={Recall_100:0.3f}, KNN={knn_100.item():0.1f}")
 
             if (epoch) in evaluate_at:
                 self.save_model(self.save_root, epoch + 1)
 
         # Save final model
-        self.save_model(self.save_root, num_epochs)
-
-        recall_cars, auroc_cars = V.get_zero_shot_metrics("cars196")
-        self.tb_logger.add_scalar('ZeroShot/AUROC_CARS', auroc_cars, epoch)
-        self.tb_logger.add_scalar('ZeroShot/R@1_CARS', recall_cars, epoch)
-
-        recall_cup, auroc_cup = V.get_zero_shot_metrics("cup200")
-        self.tb_logger.add_scalar('ZeroShot/AUROC_CUP', auroc_cup, epoch)
-        self.tb_logger.add_scalar('ZeroShot/R@1_CUP', recall_cup, epoch)
-
-        recall_sop, auroc_sop = V.get_zero_shot_metrics("sop")
-        self.tb_logger.add_scalar('ZeroShot/AUROC_SOP', auroc_sop, epoch)
-        self.tb_logger.add_scalar('ZeroShot/R@1_SOP', recall_sop, epoch)
-
+        # self.save_model(self.save_root, num_epochs)
+        #
+        # recall_cars, auroc_cars = V.get_zero_shot_metrics("cars196")
+        # self.tb_logger.add_scalar('ZeroShot/AUROC_CARS', auroc_cars, epoch)
+        # self.tb_logger.add_scalar('ZeroShot/R@1_CARS', recall_cars, epoch)
+        #
+        # recall_cup, auroc_cup = V.get_zero_shot_metrics("cup200")
+        # self.tb_logger.add_scalar('ZeroShot/AUROC_CUP', auroc_cup, epoch)
+        # self.tb_logger.add_scalar('ZeroShot/R@1_CUP', recall_cup, epoch)
+        #
+        # recall_sop, auroc_sop = V.get_zero_shot_metrics("sop")
+        # self.tb_logger.add_scalar('ZeroShot/AUROC_SOP', auroc_sop, epoch)
+        # self.tb_logger.add_scalar('ZeroShot/R@1_SOP', recall_sop, epoch)
+        #
 
     def save_model(self, save_root, epoch):
         save_data = {'model': self.model.state_dict(),
