@@ -8,9 +8,7 @@ class BT_Loss(nn.Module):
     def __init__(self, projector_hidden, rep_dim):
         super().__init__()
 
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        self.bn = nn.BatchNorm1d(projector_hidden[-1] if projector_hidden else rep_dim,
-                                 affine=False)
+        self.bn = nn.BatchNorm1d(projector_hidden[-1] if projector_hidden else rep_dim, affine=False)
 
     def _off_diagonal(self, x):
         # return a flattened view of the off-diagonal elements of a square matrix

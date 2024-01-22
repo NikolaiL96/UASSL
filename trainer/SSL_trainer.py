@@ -113,6 +113,10 @@ class SSL_Trainer(object):
             # save learning rate
             self._hist_lr.append(self.scheduler.get_last_lr())
 
+            if self.scheduler and self._iter_scheduler:
+                # Scheduler every iteration for cosine decay
+                self.scheduler.step()
+
             # Save loss
             self._epoch_loss += loss
 

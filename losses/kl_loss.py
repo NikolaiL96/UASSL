@@ -8,7 +8,6 @@ class KL_Loss(nn.Module):
     def __init__(self, distribution: str, temperature: float = 0.01):
         super().__init__()
 
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.temperature = temperature
         self.distribution = distribution
 
@@ -55,8 +54,8 @@ class KL_Loss(nn.Module):
                               dim=-1)
         return kld
 
-    def mask(self, n_batch):
-        mask_self = torch.eye(2 * n_batch, dtype=torch.bool, device=self.device)
+    def mask(self, n_batch, device):
+        mask_self = torch.eye(2 * n_batch, dtype=torch.bool, device=device)
         mask_pos = mask_self.roll(shifts=n_batch, dims=1)
         return mask_pos, mask_self
 
@@ -73,7 +72,7 @@ class KL_Loss(nn.Module):
         elif "normal" in self.distribution:
             sim_mat = self.kl_two_normals(loc, loc, scale, scale)
 
-        mask_pos, mask_self = self.mask(n_batch)
+        mask_pos, mask_self = self.mask(n_batch, p1.loc.device)
         sim_mat[mask_self] = float('-inf')
 
         sim_mat *= self.temperature

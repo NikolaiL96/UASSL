@@ -103,8 +103,10 @@ class SimCLR(nn.Module):
                 pz1, pk1 = self.projector(dist1.loc, dist1.scale)
                 pz2, pk2 = self.projector(dist2.loc, dist2.scale)
                 ssl_loss = self.loss_fn(Normal(pz1, pk1), Normal(pz2, pk2))
+            else:
+                raise TypeError("Please use the Probabilistic Projection head with Normal distribution.")
         else:
-            raise TypeError("Please use the Probabilistic Projection head with Normal distribution.")
+            raise TypeError("Please specify a correct loss.")
 
         return ssl_loss
 

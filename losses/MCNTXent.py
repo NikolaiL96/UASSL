@@ -8,13 +8,12 @@ class MCNTXent(nn.Module):
     def __init__(self, loss: str, temperature: float = 0.1, n_mc: int = 16):
         super().__init__()
 
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.temperature = temperature
         self.n_mc = n_mc
 
         self.method, self.reduction = get_configuration(loss)
 
-    def mask(self, n_batch, n_mc):
+    def mask(self, n_batch, n_mc, device):
         B = 2 * n_batch
         if self.method == "local":
             mask_pos = torch.eye(B)
@@ -22,7 +21,7 @@ class MCNTXent(nn.Module):
             mask_pos = mask_pos.to(bool)
             mask_pos = mask_pos.unsqueeze(0).expand(n_mc, 1, 1)
 
-            mask_self = torch.eye(2 * n_batch, dtype=torch.bool, device=self.device)
+            mask_self = torch.eye(2 * n_batch, dtype=torch.bool, device=device)
             mask_self = mask_self.unsqueeze(0).expand(n_mc, 1, 1)
 
             return mask_self, mask_pos
@@ -30,8 +29,8 @@ class MCNTXent(nn.Module):
         elif self.method == "pairwise":
             b = 2 * n_batch
             s = b * n_mc
-            mask_self = torch.zeros([s, s])
-            mask_pos = torch.zeros([s, s])
+            mask_self = torch.zeros([s, s], device=device)
+            mask_pos = torch.zeros([s, s], device=device)
 
             for i in range(0, n_mc):
                 mask_self += torch.diag(torch.ones(b * (n_mc - i)), i * b)
@@ -52,7 +51,7 @@ class MCNTXent(nn.Module):
         z = torch.cat([p1, p2], dim=1)
 
         if self.method == "local":
-            mask_self, mask_pos = self.mask(n_batch, n_mc)
+            mask_self, mask_pos = self.mask(n_batch, n_mc, device=p1.device)
 
             sim_mat = torch.bmm(z, z.permute(0, 2, 1))
             sim_mat[mask_self] = float('-inf')
@@ -69,7 +68,7 @@ class MCNTXent(nn.Module):
                 pass
 
         if self.method == "pairwise":
-            mask_self, mask_pos, mask_neg = self.mask(n_batch, n_mc)
+            mask_self, mask_pos, mask_neg = self.mask(n_batch, n_mc, p1.device)
             z = z.view(n_mc * 2 * n_batch, -1)
 
             sim_mat = z.matmul(z.transpose(-2, -1))

@@ -55,11 +55,10 @@ class Validate:
 
     @torch.no_grad()
     def _get_roc(self, loc, labels, kappa):
-        with torch.no_grad():
-            closest_idxes = loc.matmul(loc.transpose(-2, -1)).topk(2)[1][:, 1]
-            closest_classes = labels[closest_idxes]
-            is_same_class = (closest_classes == labels).float()
-            auroc = auc(-kappa.squeeze(), is_same_class.int()).item()
+        closest_idxes = loc.matmul(loc.transpose(-2, -1)).topk(2)[1][:, 1]
+        closest_classes = labels[closest_idxes]
+        is_same_class = (closest_classes == labels).float()
+        auroc = auc(-kappa.squeeze(), is_same_class.int()).item()
 
         return is_same_class.mean(), auroc
 
@@ -70,11 +69,12 @@ class Validate:
         data_cifar10h, *_ = load_dataset("cifar10", "./data/", augmentation_type="BYOL", dl_kwargs=dl_kwargs)
 
         for n, (x_test, labels_test) in enumerate(data_cifar10h.test_dl):
-            with torch.no_grad():
-                with autocast(enabled=self.use_amp):
-                    feats_test = self.encoder(x_test.to(self.device))
-                kappa_test = feats_test.scale
+            x_test, labels_test = x_test.to(self.device), labels_test.to(self.device)
 
+            with autocast(enabled=self.use_amp):
+                feats_test = self.encoder(x_test)
+
+            kappa_test = feats_test.scale
             test_kappa += (kappa_test,)
 
         kappa = torch.cat(test_kappa).cpu().numpy()
@@ -120,51 +120,55 @@ class Validate:
         total_top1, total_num = 0.0, 0
 
         for n, (x_train, labels_train) in enumerate(self.data.train_eval_dl):
-            with torch.no_grad():
-                with autocast(enabled=self.use_amp):
-                    feats_train = self.encoder(x_train.to(self.device))
-                kappa_train = feats_train.scale
-                feats_train = feats_train.loc
+            x_train, labels_train = x_train.to(self.device), labels_train.to(self.device)
+
+            with autocast(enabled=self.use_amp):
+                feats_train = self.encoder(x_train)
+
+            kappa_train = feats_train.scale
+            feats_train = feats_train.loc
             train_features += (F.normalize(feats_train, dim=1),)
             train_labels += (labels_train,)
             train_kappa += (kappa_train,)
 
         train_features = torch.cat(train_features)
-        train_labels = torch.cat(train_labels).to(self.device)
+        train_labels = torch.cat(train_labels)
 
         if num_classes is None:
             num_classes = len(set(train_labels.cpu().numpy().tolist()))
 
         for n, (x_test, labels_test) in enumerate(self.data_test.test_dl):
-            with torch.no_grad():
-                with autocast(enabled=self.use_amp):
-                    feats_test = self.encoder(x_test.to(self.device))
-                labels_test = labels_test.to(self.device)
-                kappa_test = feats_test.scale
-                loc_test = feats_test.loc
+            x_test, labels_test = x_test.to(self.device), labels_test.to(self.device)
 
-                if self.distribution in ["sphere", "normal"]:
-                    kappa_test = 1 / kappa_test
-                else:
-                    kappa_test = kappa_test
+            with autocast(enabled=self.use_amp):
+                feats_test = self.encoder(x_test.to(self.device))
 
-                recall, auroc = self._get_roc(loc_test, labels_test, kappa_test)
+            labels_test = labels_test
+            kappa_test = feats_test.scale
+            loc_test = feats_test.loc
 
-                if not self.low_shot:
-                    pred_labels = knn_predict(loc_test, train_features.t().contiguous(), train_labels, num_classes,
-                                              knn_k,
-                                              knn_t)
-                    total_num += x_test.size(0)
-                    total_top1 += (pred_labels[:, 0] == labels_test).float().sum().item()
+            if self.distribution in ["sphere", "normal"]:
+                kappa_test = 1 / kappa_test
+            else:
+                kappa_test = kappa_test
 
-            test_features += (F.normalize(loc_test, dim=1),)
+            recall, auroc = self._get_roc(loc_test, labels_test, kappa_test)
 
-            test_labels += (labels_test.cpu(),)
-            test_kappa += (kappa_test,)
-            test_loc += (loc_test,)
+            if not self.low_shot:
+                pred_labels = knn_predict(loc_test, train_features.t().contiguous(), train_labels, num_classes,
+                                          knn_k,
+                                          knn_t)
+                total_num += x_test.size(0)
+                total_top1 += (pred_labels[:, 0] == labels_test).float().sum().item()
 
-            Recall.append(recall)
-            Auroc.append(auroc)
+        test_features += (F.normalize(loc_test, dim=1),)
+
+        test_labels += (labels_test.cpu(),)
+        test_kappa += (kappa_test,)
+        test_loc += (loc_test,)
+
+        Recall.append(recall)
+        Auroc.append(auroc)
 
 
         test_features = torch.cat(test_features)
@@ -210,19 +214,19 @@ class Validate:
             x, target = x.to(self.device), target.to(self.device)
             x_c = torch.zeros_like(x, device=self.device)
             c_sizes = torch.zeros(x.shape[0], device=self.device)
+
             for i in range(x.shape[0]):
                 # Crop each image individually because torchvision cannot do it batch-wise
                 crop_size = int(torch.round(min(x.shape[2], x.shape[3]) * crop[k + i]))
                 c_sizes[i] = crop_size
                 x_c[i] = TF.resize(TF.center_crop(x[i], [crop_size]), [x.shape[2], x.shape[3]], antialias=True)
 
-            with torch.no_grad():
-                with autocast(enabled=self.use_amp):
-                    Unc += (self.encoder(x).scale,)
-                    Unc_c += (self.encoder(x_c.to(self.device)).scale,)
+            with autocast(enabled=self.use_amp):
+                Unc += (self.encoder(x).scale,)
+                Unc_c += (self.encoder(x_c).scale,)
 
-        Unc = 1 / torch.cat(Unc).to(self.device)
-        Unc_c = 1 / torch.cat(Unc_c).to(self.device)
+        Unc = 1 / torch.cat(Unc)
+        Unc_c = 1 / torch.cat(Unc_c)
 
         p_cropped = (Unc < Unc_c).float().mean()
         cor_cropped = spearmanr(-Unc_c.cpu().numpy(), crop.cpu().numpy())[0]
@@ -249,10 +253,12 @@ class Validate:
         test_loc = ()
 
         for n, (x, labels) in enumerate(ssl_data.test_dl):
-            with torch.no_grad():
-                with autocast(enabled=self.use_amp):
-                    feats = self.encoder(x.to(self.device))
-            labels = labels.to(self.device)
+            x, labels = x.to(self.device), labels.to(self.device)
+
+            with autocast(enabled=self.use_amp):
+                feats = self.encoder(x)
+
+            labels = labels
             kappa = feats.scale
             loc = feats.loc
 
@@ -269,9 +275,9 @@ class Validate:
             Recall.append(recall)
             Auroc.append(auroc)
 
-            Labels = torch.cat(test_labels).to(self.device)
-            U = torch.cat(test_kappa).to(self.device)
-            Loc = torch.cat(test_loc).to(self.device)
+            Labels = torch.cat(test_labels)
+            U = torch.cat(test_kappa)
+            Loc = torch.cat(test_loc)
             self.vis_t_SNE(Loc, Labels, U, dataset)
 
             Recall = torch.stack(Recall, 0).mean()
