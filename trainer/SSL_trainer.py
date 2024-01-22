@@ -90,8 +90,8 @@ class SSL_Trainer(object):
             self._epoch_ssl_loss += ssl_loss.detach()
             self._epoch_kl_loss += kl_loss.detach()
             self._epoch_unc_loss += unc_loss.detach()
-            self._dist_std_stats['min'] = min([self._dist_std_stats['min'], dist1.scale.min().item()])
-            self._dist_std_stats['max'] = max([self._dist_std_stats['max'], dist1.scale.max().item()])
+            self._dist_std_stats['min'] = dist1.scale.min().item()
+            self._dist_std_stats['max'] = dist1.scale.max().item()
             self._dist_std_stats['mean'] += dist1.scale.mean().item()
             self._dist_std_stats['diversity'] += dist1.scale.std().item()
 
