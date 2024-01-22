@@ -55,7 +55,8 @@ class MCNTXent(nn.Module):
             mask_self, mask_pos = self.mask(n_batch, n_mc)
 
             sim_mat = torch.bmm(z, z.permute(0, 2, 1))
-            sim_mat = sim_mat.masked_fill_(mask_self, -9e6) / self.temperature
+            sim_mat[mask_self] = float('-inf')
+            sim_mat /= self.temperature
 
             pos = sim_mat[mask_pos].view(n_mc, 2 * n_batch)
 
@@ -71,8 +72,9 @@ class MCNTXent(nn.Module):
             mask_self, mask_pos, mask_neg = self.mask(n_batch, n_mc)
             z = z.view(n_mc * 2 * n_batch, -1)
 
-            sim_mat = torch.matmul(z, z.T)
-            sim_mat.masked_fill_(mask_self, -9e15) / self.temperature
+            sim_mat = z.matmul(z.transpose(-2, -1))
+            sim_mat[mask_self] = float('-inf')
+            sim_mat /= self.temperature
 
             if self.reduction == "mean":
                 loss = torch.logsumexp(sim_mat, dim=-1)[:, None] - sim_mat[mask_pos].view(n_mc * 2 * n_batch, -1)

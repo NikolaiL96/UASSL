@@ -74,7 +74,7 @@ class KL_Loss(nn.Module):
             sim_mat = self.kl_two_normals(loc, loc, scale, scale)
 
         mask_pos, mask_self = self.mask(n_batch)
-        sim_mat[mask_self] = -9e6
+        sim_mat[mask_self] = float('-inf')
 
         sim_mat *= self.temperature
         loss = sim_mat[mask_pos] - torch.logsumexp(sim_mat, dim=-1)

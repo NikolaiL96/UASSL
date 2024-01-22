@@ -24,10 +24,10 @@ class NTXent(nn.Module):
             p1, p2 = F.normalize(p1, dim=-1), F.normalize(p2, dim=-1)
 
         z = torch.cat([p1, p2], dim=0)
-        sim_mat = torch.matmul(z, z.T)
+        sim_mat = z.matmul(z.transpose(-2, -1))
 
         mask_pos, mask_self = self.mask(n_batch)
-        sim_mat[mask_self] = -9e6
+        sim_mat[mask_self] = float('-inf')
         sim_mat /= self.temperature
 
         loss = torch.logsumexp(sim_mat, dim=-1) - sim_mat[mask_pos]
