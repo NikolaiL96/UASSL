@@ -200,8 +200,8 @@ class SSL_Trainer(object):
                 self.tb_logger.add_scalar('kappa/kappa_max', self._epoch_kappa_max.item(), epoch)
 
                 # with torch.no_grad():
-                V = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model, epoch=epoch,
-                              last_epoch=False, low_shot=False)
+                V = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model,
+                             epoch=epoch, last_epoch=False, low_shot=False)
 
                 auroc2, recall2, knn2, _, _ = V._get_metrics()
                 #self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
@@ -217,7 +217,7 @@ class SSL_Trainer(object):
                       f', knn: {knn:0.1f}, Time epoch: {time.time() - start_time:0.1f}', end='\n')
 
                 if self.device.type == 'cuda':
-                    print(f'PU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
+                    print(f'GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
                           f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')
 
                 print(f'SSL Loss: {self.ssl_loss_hist[-1]:0.4f}, Regularisation Loss: {self.kl_loss_hist[-1]:0.5f}, '

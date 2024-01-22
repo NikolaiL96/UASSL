@@ -55,6 +55,7 @@ class Validate:
 
     @torch.no_grad()
     def _get_roc(self, loc, labels, kappa):
+        loc = F.normalize(loc, dim=-1)
         closest_idxes = loc.matmul(loc.transpose(-2, -1)).topk(2)[1][:, 1]
         closest_classes = labels[closest_idxes]
         is_same_class = (closest_classes == labels).float()
@@ -141,7 +142,7 @@ class Validate:
             x_test, labels_test = x_test.to(self.device), labels_test.to(self.device)
 
             with autocast(enabled=self.use_amp):
-                feats_test = self.encoder(x_test.to(self.device))
+                feats_test = self.encoder(x_test)
 
             labels_test = labels_test
             kappa_test = feats_test.scale
