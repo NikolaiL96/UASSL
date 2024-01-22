@@ -146,7 +146,7 @@ class Validate:
                 total_num += x_test.size(0)
                 total_top1 += (pred_labels[:, 0] == labels_test).float().sum().item()
 
-            test_labels += (labels_test.cpu(),)
+            test_labels += (labels_test,)
             test_uncertainty += (uncertainty,)
             test_loc += (feats_test.loc,)
 
