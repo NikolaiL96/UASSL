@@ -133,7 +133,7 @@ class Validate:
         num_classes = len(set(train_labels.cpu().numpy().tolist()))
 
         for x_test, labels_test in self.data_test.test_dl:
-            x_test = x_test.to(self.device)
+            x_test = x_test.to(self.device), labels_test.to(self.device)
 
             with autocast(enabled=self.use_amp):
                 feats_test = self.encoder(x_test)
