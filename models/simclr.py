@@ -84,6 +84,9 @@ class SimCLR(nn.Module):
     def compute_ssl_loss(self, dist1, dist2):
         n_batch = dist1.loc.shape[0]
         if self.loss == "NT-Xent":
+            a = dist1.mean
+            b = dist1.loc
+            c = dist1.rsample()
             p1 = self.projector(dist1.mean)
             p2 = self.projector(dist2.mean)
             ssl_loss = self.loss_fn(p1, p2)
@@ -112,6 +115,6 @@ class SimCLR(nn.Module):
         if self.lambda_unc != 0.:
             unc_loss = self.uncertainty_loss(dist1, dist2)
         else:
-            unc_loss = torch.tensor([0.0], device=self.dist1.loc.device)
+            unc_loss = torch.tensor([0.0], device=dist1.loc.device)
 
         return unc_loss

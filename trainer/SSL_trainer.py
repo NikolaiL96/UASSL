@@ -63,9 +63,6 @@ class SSL_Trainer(object):
         self.model.train()
         self.model.requires_grad_(True)
 
-        for name, param in self.model.named_parameters():
-            print("{} {}".format(name, param.requires_grad))
-
         nan_loss_counter = 0
         if epoch_id == 0:
             loading_time = 0.
