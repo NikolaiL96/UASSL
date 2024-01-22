@@ -194,10 +194,11 @@ class SSL_Trainer(object):
                     # auroc, recall, knn, cor_corrupted, p_corrupted = V._get_metrics()
                     # self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
                     # self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
+                    # print(f"Auroc: {auroc.item():0.3f}, Recall: {recall.item():0.3f}, knn: {knn.item():0.1f}")
 
                     recall, auroc, knn = self.evaluate(**eval_params)
 
-                    print(f"Auroc: {auroc.item():0.3f}, Recall: {recall.item():0.3f}, knn: {knn.item():0.1f}")
+                    print(f"Auroc: {auroc:0.3f}, Recall: {recall:0.3f}, knn: {knn:0.1f}")
 
                     self.tb_logger.add_scalar('kappa/AUROC', auroc, epoch)
                     self.tb_logger.add_scalar('kappa/R@1', recall, epoch)

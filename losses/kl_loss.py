@@ -22,22 +22,20 @@ class KL_Loss(nn.Module):
         kl = - H_p[None] - E_q  # [n_batch, n_batch]
         return kl
 
-    def kl_two_ps_mc(self, p, q, n_mc=10000, chunk=10):
-        # Version that calculates the log-term of the KL divergence in chunks for memory optimisation,
+    def kl_two_ps_mc(self, p, q, n_mc=1000, chunk=10):
+        # Slower but more memory efficient version that calculates the log-term in chunks,
         # exploiting the linearity of the mean.
         H_p = p.entropy()
 
-        log_term_chunks = []
-        for i in range(0, n_mc, 10):
+        log_term = 0.
+        for n, i in enumerate(range(0, n_mc, 10)):
             mc = p.rsample((chunk,))  # [chunk_size, n_batch, n_feats]
             m = torch.einsum("ib, njb -> nij", q.loc, mc)  # [chunk_size, n_batch, n_batch]
 
-            # Compute E_q for the chunk and store it
-            log_term_chunk = torch.mean(torch.log1p(m), dim=0)
-            log_term_chunks.append(log_term_chunk)
+            # Compute the log-term in chunks
+            log_term = torch.add(log_term, torch.mean(torch.log1p(m), dim=0))
 
-        log_term = torch.mean(torch.stack(log_term_chunks), dim=0)
-        E_q = q.log_normalizer() + q.scale * log_term
+        E_q = q.log_normalizer() + q.scale * (log_term / n)
 
         kl = - H_p[None] - E_q  # [n_batch, n_batch]
         return kl
