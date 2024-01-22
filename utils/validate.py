@@ -159,7 +159,7 @@ class Validate:
             dataset = str(self.data_test.test_dl.dataset).split("\n")[0].split(" ")[1]
             self.vis_t_SNE(test_features, test_labels, uncertainty, dataset)
 
-        return auroc, recall, knn, cor_corrupted, p_corrupted
+        return torch.as_tensor(auroc), torch.as_tensor(recall), knn, cor_corrupted, p_corrupted
 
     @torch.no_grad()
     def corrupted_img(self):
