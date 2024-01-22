@@ -55,7 +55,7 @@ class SSL_Trainer(object):
         knn = evaluator.knn_accuracy(self.data.train_eval_dl, self.data.test_dl)
 
         # R@1 and R-AUROC
-        recall, auc = evaluator.recall_auroc(self.data.train_eval_dl, self.data.test_dl)
+        recall, auc = evaluator.recall_auroc(self.data.test_dl)
         return auc, recall, knn
 
     def train_epoch(self, epoch_id):
