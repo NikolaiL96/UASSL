@@ -56,12 +56,15 @@ class SSL_Trainer(object):
 
         # R@1 and R-AUROC
         recall, auc = evaluator.recall_auroc(self.data.test_dl)
-        return auc, recall, knn
+        return recall, auc, knn
 
     def train_epoch(self, epoch_id):
         # make sure that things get set properly
         self.model.train()
         self.model.requires_grad_(True)
+
+        for name, param in self.model.named_parameters():
+            print("{} {}".format(name, param.requires_grad))
 
         nan_loss_counter = 0
         if epoch_id == 0:
@@ -84,7 +87,7 @@ class SSL_Trainer(object):
                 current_timestep = time.time()
             # Extract
             with autocast(enabled=self.use_amp):
-                ssl_loss, kl_loss, unc_loss = loss
+                ssl_loss, kl_loss, unc_loss, (dist1, dist2) = loss
                 loss = ssl_loss + kl_loss + unc_loss
 
             # Save stats
@@ -104,6 +107,11 @@ class SSL_Trainer(object):
             self.scaler.scale(loss).backward()
             self.scaler.step(self.optimizer)
             self.scaler.update()
+
+            # Save kappa
+            kappa = torch.mean(torch.cat([dist1.scale.detach(), dist2.scale.detach()], dim=0), dim=-1)
+            self._epoch_kappa_min = torch.min(kappa)
+            self._epoch_kappa_max = torch.max(kappa)
 
             # save learning rate
             self._hist_lr.append(self.scheduler.get_last_lr())
@@ -153,6 +161,8 @@ class SSL_Trainer(object):
             self._epoch_ssl_loss = torch.zeros(1, device=self.device)
             self._epoch_unc_loss = torch.zeros(1, device=self.device)
             self._epoch_kl_loss = torch.zeros(1, device=self.device)
+            self._epoch_kappa_min = torch.zeros(1, device=self.device)
+            self._epoch_kappa_max = torch.zeros(1, device=self.device)
 
             start_time = time.time()
 
@@ -183,10 +193,11 @@ class SSL_Trainer(object):
                 self.tb_logger.add_scalar('loss/unc_loss', self.unc_loss_hist[-1], epoch)
 
                 self.tb_logger.add_scalar('epoch_time', time.time() - start_time, epoch)
-                self.tb_logger.add_scalar('kappa/kappa_min', torch.min(self.model.kappa), epoch)
-                self.tb_logger.add_scalar('kappa/kappa_max', torch.max(self.model.kappa), epoch)
 
-                with torch.no_grad():
+                self.tb_logger.add_scalar('kappa/kappa_min', self._epoch_kappa_min.item(), epoch)
+                self.tb_logger.add_scalar('kappa/kappa_max', self._epoch_kappa_max.item(), epoch)
+
+                # with torch.no_grad():
                     # V = Validate(data=self.ssl_data, distribution=self.distribution, model=self.model, epoch=epoch,
                     #              last_epoch=False, low_shot=False)
                     #
@@ -196,20 +207,18 @@ class SSL_Trainer(object):
                     # self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
                     # print(f"Auroc: {auroc.item():0.3f}, Recall: {recall.item():0.3f}, knn: {knn.item():0.1f}")
 
-                    recall, auroc, knn = self.evaluate(**eval_params)
+                recall, auroc, knn = self.evaluate(**eval_params)
 
-                    print(f"Auroc: {auroc:0.3f}, Recall: {recall:0.3f}, knn: {knn:0.1f}")
-
-                    self.tb_logger.add_scalar('kappa/AUROC', auroc, epoch)
-                    self.tb_logger.add_scalar('kappa/R@1', recall, epoch)
-                    self.tb_logger.add_scalar('kappa/knn', knn, epoch)
+                self.tb_logger.add_scalar('kappa/AUROC', auroc, epoch)
+                self.tb_logger.add_scalar('kappa/R@1', recall, epoch)
+                self.tb_logger.add_scalar('kappa/knn', knn, epoch)
 
             if verbose:
-                print(f'Epoch: {epoch}, Loss: {self.loss_hist[-1]:0.4f}, AUROC: {auroc:0.3f}, Time epoch: {time.time() - start_time:0.1f}',
-                      end='\n')
+                print(f'Epoch: {epoch}, Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc:0.3f}, Recall: {recall:0.3f}'
+                      f', knn: {knn:0.1f}, Time epoch: {time.time() - start_time:0.1f}', end='\n')
 
                 if self.device.type == 'cuda':
-                    print(f', GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
+                    print(f'PU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
                           f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')
 
                 print(f'SSL Loss: {self.ssl_loss_hist[-1]:0.4f}, Regularisation Loss: {self.kl_loss_hist[-1]:0.5f}, '

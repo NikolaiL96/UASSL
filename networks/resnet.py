@@ -11,6 +11,7 @@ def cifar_resnet18(in_channels: int = 3):
     resnet.name = "ResNet18"
     return resnet
 
+
 def cifar_resnet50(in_channels: int = 3):
     resnet = resnet50(zero_init_residual=True)
 

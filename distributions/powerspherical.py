@@ -200,13 +200,23 @@ class PowerSpherical(torch.distributions.TransformedDistribution):
     def variance(self):
         alpha = self.base_dist.marginal_t.base_dist.concentration1
         beta = self.base_dist.marginal_t.base_dist.concentration0
-        ratio = (alpha + beta) / (2 * beta)
-        return self.base_dist.marginal_t.variance * (
-                (1 - ratio) * self.loc.unsqueeze(-1) @ self.loc.unsqueeze(-2)
-                + ratio * torch.eye(self.loc.shape[-1])
+
+        ratio = ((alpha + beta) / (2 * beta)).reshape((-1, 1, 1))
+
+        outer = torch.einsum("bi,bj->bij", (self.loc, self.loc))
+
+        return self.base_dist.marginal_t.variance.reshape((-1, 1, 1)) * (
+                outer * (1 - ratio)
+                + ratio * torch.eye(self.loc.shape[-1], device=self.loc.device, dtype=self.loc.dtype)
         )
+
+    def rsample(self, sample_shape=torch.Size()):
+        sample = super().rsample(sample_shape)
+        return sample
 
 
 @register_kl(PowerSpherical, HypersphericalUniform)
 def _kl_powerspherical_uniform(p, q):
-    return -p.entropy() + q.entropy()
+    ps_entropy = p.entropy()
+    qs_entropy = q.entropy().to(ps_entropy.device)
+    return -ps_entropy + qs_entropy

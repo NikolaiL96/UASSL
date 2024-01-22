@@ -13,7 +13,7 @@ class SimCLR(nn.Module):
             self,
             backbone_net: nn.Module,
             projector_hidden: Union[int, tuple] = (2048, 2048, 256),
-            loss: str = "InfoNCE",
+            loss: str = "NT-Xent",
             temperature: float = 0.05,
             distribution_type: str = None,
             lambda_reg: float = 0.001,
@@ -22,12 +22,12 @@ class SimCLR(nn.Module):
     ):
         super().__init__()
 
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.backbone_net = backbone_net
         self.rep_dim = self.backbone_net.fc.in_features
         self.kappa = None
 
         if backbone_net.name != "UncertaintyNet":
+            backbone_net.fc = nn.Identity()
             self.backbone_net.fc = Probabilistic_Layer(distribution_type, in_features=self.rep_dim)
         self.projector_hidden = projector_hidden
 
@@ -54,7 +54,7 @@ class SimCLR(nn.Module):
             if self.loss == "KL_Loss" and self.distribution_type == "normal":
                 self.projector = MLP_variational(self.rep_dim, self.projector_hidden, bias=True)
             else:
-                self.projector = MLP(self.rep_dim, self.projector_hidden, batchnorm_last=True, bias=False)
+                self.projector = MLP(self.rep_dim, self.projector_hidden, bias=False)
             print(f"The projector has {self.projector_hidden} hidden units")
         else:
             self.projector = nn.Identity()
@@ -74,13 +74,12 @@ class SimCLR(nn.Module):
 
     def forward(self, x1, x2):
         dist1, dist2 = self.backbone_net(x1), self.backbone_net(x2)
-        self.kappa = torch.mean(torch.cat([dist1.scale, dist2.scale], dim=0), dim=-1)
 
         ssl_loss = self.compute_ssl_loss(dist1, dist2)
         var_reg = self.regularizer((dist1, dist2))
         unc_loss = self.compute_uncertainty_loss(dist1, dist2)
 
-        return ssl_loss, var_reg, unc_loss
+        return ssl_loss, var_reg, unc_loss, (dist1, dist2)
 
     def compute_ssl_loss(self, dist1, dist2):
         n_batch = dist1.loc.shape[0]
@@ -113,6 +112,6 @@ class SimCLR(nn.Module):
         if self.lambda_unc != 0.:
             unc_loss = self.uncertainty_loss(dist1, dist2)
         else:
-            unc_loss = torch.tensor([0.0], device=self.device)
+            unc_loss = torch.tensor([0.0], device=self.dist1.loc.device)
 
         return unc_loss

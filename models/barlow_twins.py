@@ -23,12 +23,12 @@ class BarlowTwins(nn.Module):
     ):
         super().__init__()
 
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.backbone_net = backbone_net
         self.rep_dim = self.backbone_net.fc.in_features
         self.kappa = None
 
         if backbone_net.name != "UncertaintyNet":
+            backbone_net.fc = nn.Identity()
             self.backbone_net.fc = Probabilistic_Layer(distribution_type, in_features=self.rep_dim)
 
         self.distribution_type = distribution_type
@@ -64,8 +64,6 @@ class BarlowTwins(nn.Module):
         dist1 = self.backbone_net(x1)
         dist2 = self.backbone_net(x2)
 
-        self.kappa = torch.mean(torch.cat([dist1.scale, dist2.scale], dim=0), dim=-1)
-
         # Get Sample Projections
         p1 = self.projector(dist1.loc)
         p2 = self.projector(dist2.loc)
@@ -77,6 +75,6 @@ class BarlowTwins(nn.Module):
         if self.lambda_unc != 0.:
             unc_loss = self.uncertainty_loss(dist1, dist2)
         else:
-            torch.tensor([1.0], device=self.device)
+            torch.tensor([1.0], device=self.dist1.loc.device)
 
-        return ssl_loss, var_reg, unc_loss
+        return ssl_loss, var_reg, unc_loss, (dist1, dist2)
