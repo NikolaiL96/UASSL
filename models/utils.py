@@ -1,7 +1,6 @@
 from typing import Union
 
 import torch.nn as nn
-#import torchadf.nn as adf
 from torchadf.nn import Sequential, Linear, ReLU
 
 

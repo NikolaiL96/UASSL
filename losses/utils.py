@@ -1,5 +1,3 @@
-
-
 def get_configuration(name):
     if "local" in name:
         method = "local"

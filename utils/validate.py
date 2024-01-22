@@ -22,7 +22,8 @@ from utils.utils import get_cifar10h, knn_predict
 
 class Validate:
 
-    def __init__(self, data, distribution, model, device, epoch=None, last_epoch=False, low_shot=False, plot_tsne=False):
+    def __init__(self, data, distribution, model, device, epoch=None, last_epoch=False, low_shot=False,
+                 plot_tsne=False):
 
         self.device = device
         self.use_amp = device.type == 'cuda'
@@ -30,22 +31,16 @@ class Validate:
         self.last_epoch = last_epoch
         self.low_shot = low_shot
         self.plot_tsne = plot_tsne
-
         self.data = data
 
-        self.dataset = str(data.test_dl.dataset).split("\n")[0].split(" ")[1]
-        if self.dataset == "cifar10":
-            oob_data = "cifar100"
-        elif self.data == "cifar100":
-            oob_data = "cifar10"
+        dataset = str(data.test_dl.dataset).split("\n")[0].split(" ")[1]
+        oob_data = "cifar10" if dataset == "cifar100" else "cifar100"
 
         if low_shot:
             dl_kwargs = {"batch_size": 512, "shuffle": True, "num_workers": min(os.cpu_count(), 0)}
             self.data_test, *_ = load_dataset(oob_data, "./data/", augmentation_type="BYOL", dl_kwargs=dl_kwargs)
         else:
-            dl_kwargs = {"batch_size": 512, "shuffle": False, "num_workers": min(os.cpu_count(), 0)}
-            #self.data_test = self.data
-            self.data_test, *_ = load_dataset("cifar10", "./data/", augmentation_type="BYOL", dl_kwargs=dl_kwargs)
+            self.data_test = self.data
 
         self.model = model
         self.encoder = self.model.backbone_net
@@ -108,99 +103,64 @@ class Validate:
         return linear_evaluator.linear_accuracy(test_loader)
 
     @torch.no_grad()
-    def _get_metrics(self, knn_k: int = 200, knn_t: float = 0.1, num_classes=None):
+    def extract_train(self, train_dl):
+        # extract train
+        train_features, train_labels, train_dist = (), (), ()
 
-        train_features = ()
-        train_labels = ()
-        train_kappa = ()
-        test_features = ()
-        test_labels = ()
-        test_kappa = ()
-        test_loc = ()
-
-        Recall = []
-        Auroc = []
-        total_top1, total_num = 0.0, 0
-
-        for n, (x_train, labels_train) in enumerate(self.data.train_eval_dl):
-            x_train, labels_train = x_train.to(self.device), labels_train.to(self.device)
+        for x, labels in train_dl:
+            x, labels = x.to(self.device), labels.to(self.device)
 
             with autocast(enabled=self.use_amp):
-                feats_train = self.encoder(x_train)
+                feats = self.encoder(x)
 
-            kappa_train = feats_train.scale
-            feats_train = feats_train.loc
-            train_features += (F.normalize(feats_train, dim=1),)
-            train_labels += (labels_train,)
-            train_kappa += (kappa_train,)
+            feats = feats.loc
 
-        train_features = torch.cat(train_features)
+            train_features += (F.normalize(feats, dim=1),)
+            train_labels += (labels,)
+
+        train_features = torch.cat(train_features).t().contiguous()
         train_labels = torch.cat(train_labels)
+
+        return train_features, train_labels
+
+    @torch.no_grad()
+    def _get_metrics(self, knn_k: int = 200, knn_t: float = 0.1, num_classes=None):
+
+        test_features, test_labels, test_uncertainty, test_loc = (), (), (), ()
+        train_features, train_labels = self.extract_train(self.data.train_eval_dl)
+        total_top1, total_num = 0.0, 0
 
         if num_classes is None:
             num_classes = len(set(train_labels.cpu().numpy().tolist()))
 
-        for n, (x_test, labels_test) in enumerate(self.data_test.test_dl):
-            x_test, labels_test = x_test.to(self.device), labels_test.to(self.device)
+        for x_test, labels_test in self.data_test.test_dl:
+            x_test = x_test.to(self.device)
 
             with autocast(enabled=self.use_amp):
                 feats_test = self.encoder(x_test)
 
-            labels_test = labels_test
-            kappa_test = feats_test.scale
             loc_test = feats_test.loc
-
-            if self.distribution in ["sphere", "normal"]:
-                kappa_test = 1 / kappa_test
-            else:
-                kappa_test = kappa_test
-
-            recall, auroc = self._get_roc(loc_test, labels_test, kappa_test)
+            uncertainty = 1 / feats_test.scale if self.distribution not in ["sphere", "normal"] else feats_test.scale
 
             if not self.low_shot:
-                pred_labels = knn_predict(loc_test, train_features.t().contiguous(), train_labels, num_classes,
-                                          knn_k,
-                                          knn_t)
+                pred_labels = knn_predict(loc_test, train_features.t().contiguous(), train_labels, num_classes, knn_k, knn_t)
                 total_num += x_test.size(0)
                 total_top1 += (pred_labels[:, 0] == labels_test).float().sum().item()
 
-        test_features += (F.normalize(loc_test, dim=1),)
+            test_labels += (labels_test.cpu(),)
+            test_uncertainty += (uncertainty,)
+            test_loc += (feats_test.loc,)
 
-        test_labels += (labels_test.cpu(),)
-        test_kappa += (kappa_test,)
-        test_loc += (loc_test,)
+        recall, auroc = self._get_roc(torch.cat(test_loc), torch.cat(test_labels), torch.cat(test_uncertainty))
 
-        Recall.append(recall)
-        Auroc.append(auroc)
-
-
-        test_features = torch.cat(test_features)
-        test_labels = torch.cat(test_labels).to(self.device)
-        uncertainty = torch.cat(test_kappa).to(self.device)
-
-        Recall = torch.stack(Recall, 0).mean()
-        Auroc = torch.Tensor(Auroc).mean()
-
-        if not self.low_shot:
-            knn = torch.tensor(total_top1 / total_num * 100)
-        else:
-            knn = torch.zeros(1)
-
-        if self.last_epoch:
-            p_corrupted, cor_corrupted = self.corrupted_img()
-        else:
-            p_corrupted = cor_corrupted = torch.zeros(1)
+        p_corrupted, cor_corrupted = self.corrupted_img() if self.last_epoch else (torch.zeros(1), torch.zeros(1))
+        knn = torch.tensor(total_top1 / total_num * 100) if not self.low_shot else torch.zeros(1)
 
         if self.plot_tsne:
-            try:
-                dataset = str(self.data_test.test_dl.dataset).split("\n")[0].split(" ")[1]
-            except Exception as e:
-                print(e, "Test-dataset could not be figured out from dataloader.")
-                dataset = "Aux_Data"
-
+            dataset = str(self.data_test.test_dl.dataset).split("\n")[0].split(" ")[1]
             self.vis_t_SNE(test_features, test_labels, uncertainty, dataset)
 
-        return Auroc, Recall, knn, cor_corrupted, p_corrupted
+        return auroc, recall, knn, cor_corrupted, p_corrupted
 
     @torch.no_grad()
     def corrupted_img(self):
@@ -288,7 +248,6 @@ class Validate:
 
         return Recall, Auroc
 
-
     @torch.no_grad()
     def vis_t_SNE(self, feats, labels, kappa, data=None):
 
@@ -322,4 +281,3 @@ class Validate:
         path = f"/home/lorenzni/imgs/{id}"
         Path(path).mkdir(parents=True, exist_ok=True)
         fig.savefig(f'{path}/{name}.pdf', dpi=fig.dpi)
-
