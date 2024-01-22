@@ -6,6 +6,7 @@ from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 
 from utils import check_existing_model, Validate, Linear_Protocoler
+from torch.cuda.amp import autocast, GradScaler
 
 
 class SSL_Trainer(object):
@@ -15,6 +16,8 @@ class SSL_Trainer(object):
         super().__init__()
         # Define device
         self.device = torch.device(device)
+        self.use_amp = device.type == 'cuda'
+        self.scaler = GradScaler(enabled=self.use_amp)
 
         self.train_data = train_data
         self.data_root = data_root
@@ -73,16 +76,16 @@ class SSL_Trainer(object):
                 current_timestep = time.time()
 
             # Forward pass
-            loss = self.model(x1, x2)
+            with autocast(enabled=self.use_amp):
+                loss = self.model(x1, x2)
 
             if epoch_id == 0:
                 forward_time += time.time() - current_timestep
                 current_timestep = time.time()
             # Extract
-            if isinstance(loss, tuple):
+            with autocast(enabled=self.use_amp):
                 ssl_loss, kl_loss, unc_loss = loss
-
-            loss = ssl_loss + kl_loss + unc_loss
+                loss = ssl_loss + kl_loss + unc_loss
 
             # Save stats
             self._epoch_ssl_loss += ssl_loss.detach()
@@ -98,15 +101,12 @@ class SSL_Trainer(object):
 
             # Backward pass
             self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
 
             # save learning rate
             self._hist_lr.append(self.scheduler.get_last_lr())
-
-            if self.scheduler and self._iter_scheduler:
-                # Scheduler every iteration for cosine deday
-                self.scheduler.step()
 
             # Save loss
             self._epoch_loss += loss
@@ -206,8 +206,8 @@ class SSL_Trainer(object):
 
             if verbose:
                 print(f'Epoch: {epoch}, Loss: {self.loss_hist[-1]:0.4f}, AUROC: {auroc:0.3f}, Time epoch: {time.time() - start_time:0.1f}',
-                      end='')
-                print(self.device)
+                      end='\n')
+
                 if self.device.type == 'cuda':
                     print(f', GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
                           f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')

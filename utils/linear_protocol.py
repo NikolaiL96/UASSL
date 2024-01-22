@@ -7,9 +7,7 @@ import torch.nn as nn
 import torch.optim as opt
 import torch.nn.functional as F
 from torchmetrics.functional.classification import binary_auroc as auc
-
-#from utils.metrics import auroc, recall_at_one
-
+from torch.cuda.amp import autocast
 
 class Linear_Protocoler(object):
     def __init__(
@@ -17,6 +15,7 @@ class Linear_Protocoler(object):
     ):
         self.device = device
         self.variational = variational
+        self.use_amp = device.type == 'cuda'
 
         self.encoder = encoder  # .to(self.device)
         # Set to evaluation mode
@@ -27,34 +26,13 @@ class Linear_Protocoler(object):
         self.exclusion_mode = exclusion_mode
 
     @torch.no_grad()
-    def recall_auroc(self, train_dl, test_dl):
-        #test_features, test_labels, uncertainties = self._feats_labels_uncertanties(dl=test_dl)
-        recall, aur = self.recall_at_one(test_dl)
-        #aur = self.auroc(uncertainties, correctness)
-        return recall, aur
-
-    @torch.no_grad()
-    def knn_accuracy(self, train_dl, test_dl, knn_k: int = 200, knn_t: float = 0.1):
-        train_features, train_labels = self._knn_extract_features_and_labels(
-            train_dl=train_dl)
-
-        accuracy = self._knn_predict_with_given_features_and_labels(
-            train_features=train_features,
-            train_labels=train_labels,
-            test_dl=test_dl,
-            knn_k=knn_k,
-            knn_t=knn_t
-        )
-
-        return accuracy
-
-    @torch.no_grad()
-    def recall_at_one(self, dl):
+    def recall_auroc(self, test_dl):
         Recall = []
         Auroc = []
-        for x, labels in dl:
+        for x, labels in test_dl:
             with torch.no_grad():
-                feats = self.encoder(x.to(self.device))
+                with autocast(enabled=self.use_amp):
+                    feats = self.encoder(x.to(self.device))
                 labels = labels.to(self.device)
                 dist = 1 / feats.scale
                 feats = feats.mean
@@ -72,6 +50,22 @@ class Linear_Protocoler(object):
         Auroc = torch.Tensor(Auroc)
         return Recall.mean(), Auroc.mean()
 
+
+    @torch.no_grad()
+    def knn_accuracy(self, train_dl, test_dl, knn_k: int = 200, knn_t: float = 0.1):
+        train_features, train_labels = self._knn_extract_features_and_labels(
+            train_dl=train_dl)
+
+        accuracy = self._knn_predict_with_given_features_and_labels(
+            train_features=train_features,
+            train_labels=train_labels,
+            test_dl=test_dl,
+            knn_k=knn_k,
+            knn_t=knn_t
+        )
+
+        return accuracy
+
     @torch.no_grad()
     def auroc(self, uncertainties, correctness):
         auroc_correct = auc(-uncertainties, correctness.int()).item()
@@ -82,7 +76,8 @@ class Linear_Protocoler(object):
         for n, (x, y) in enumerate(dl):
             x = x.to(self.device)
             with torch.no_grad():
-                x = self.encoder(x)
+                with autocast(enabled=self.use_amp):
+                    x = self.encoder(x)
                 x = x.scale
             if n != 0:
                 dist = torch.cat([dist, x])
@@ -98,7 +93,8 @@ class Linear_Protocoler(object):
         Dist = ()
         for x, labels in dl:
             with torch.no_grad():
-                feats = self.encoder(x.to(self.device))
+                with autocast(enabled=self.use_amp):
+                    feats = self.encoder(x.to(self.device))
                 dist = feats.scale
                 feats = feats.rsample()
 
@@ -120,7 +116,8 @@ class Linear_Protocoler(object):
         train_dist = ()
         for x, labels in train_dl:
             with torch.no_grad():
-                feats = self.encoder(x.to(self.device))
+                with autocast(enabled=self.use_amp):
+                    feats = self.encoder(x.to(self.device))
                 dist = feats.scale
             if self.variational:
                 feats = feats.mean
@@ -155,7 +152,10 @@ class Linear_Protocoler(object):
         total_top1, total_num = 0.0, 0
         for x, target in test_dl:
             x, target = x.to(self.device), target.to(self.device)
-            features = self.encoder(x)
+            with torch.no_grad():
+                with autocast(enabled=self.use_amp):
+                    features = self.encoder(x)
+
             if self.variational:
                 features = features.mean
             features = F.normalize(features, dim=1)
@@ -206,7 +206,8 @@ class Linear_Protocoler(object):
                 x, y = x.to(self.device), y.to(self.device)
                 # forward
                 with torch.no_grad():
-                    dist = self.encoder(x)
+                    with autocast(enabled=self.use_amp):
+                        dist = self.encoder(x)
                 if self.variational:
                     # x = x.mean
                     x = dist.rsample()
@@ -264,7 +265,9 @@ class Linear_Protocoler(object):
             for x, y in dataloader:
                 x, y = x.to(self.device), y.to(self.device)
                 # calculate outputs by running images through the network
-                x = self.encoder(x)
+                with torch.no_grad():
+                    with autocast(enabled=self.use_amp):
+                        x = self.encoder(x)
                 if self.variational:
                     x = x.mean
 
@@ -293,7 +296,9 @@ class Linear_Protocoler(object):
             for x, y in dataloader:
                 x, y = x.to(self.device), y.to(self.device)
                 # calculate outputs by running images through the network
-                x = self.encoder(x)
+                with torch.no_grad():
+                    with autocast(enabled=self.use_amp):
+                        x = self.encoder(x)
                 assert (
                     self.variational
                 ), "Linear uncertainty is only defined for variational models"
