@@ -183,6 +183,8 @@ class SSL_Trainer(object):
             self.kl_loss_hist.append(self._epoch_kl_loss.item() / self._train_len)
             self.unc_loss_hist.append(self._epoch_unc_loss.item() / self._train_len)
 
+            recall, auroc, knn = self.evaluate(**eval_params)
+
             if self.tb_logger:
                 self.tb_logger.add_scalar('loss/loss', self.loss_hist[-1], epoch)
                 self.tb_logger.add_scalar('loss/ssl_loss', self.ssl_loss_hist[-1], epoch)
@@ -195,16 +197,13 @@ class SSL_Trainer(object):
                 self.tb_logger.add_scalar('kappa/kappa_max', self._epoch_kappa_max.item(), epoch)
 
                 # with torch.no_grad():
-                    # V = Validate(data=self.ssl_data, distribution=self.distribution, model=self.model, epoch=epoch,
-                    #              last_epoch=False, low_shot=False)
-                    #
-                    #
-                    # auroc, recall, knn, cor_corrupted, p_corrupted = V._get_metrics()
-                    # self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
-                    # self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
-                    # print(f"Auroc: {auroc.item():0.3f}, Recall: {recall.item():0.3f}, knn: {knn.item():0.1f}")
+                V = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model, epoch=epoch,
+                              last_epoch=False, low_shot=False)
 
-                recall, auroc, knn = self.evaluate(**eval_params)
+                auroc2, recall2, knn2, _, _ = V._get_metrics()
+                #self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
+                #self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
+                print(f"Auroc2: {auroc2.item():0.3f}, Recall2: {recall2.item():0.3f}, knn2: {knn2.item():0.1f}")
 
                 self.tb_logger.add_scalar('kappa/AUROC', auroc, epoch)
                 self.tb_logger.add_scalar('kappa/R@1', recall, epoch)
@@ -223,10 +222,10 @@ class SSL_Trainer(object):
 
             # Run evaluation
             # if epoch == num_epochs - 1:
-            #     V = Validate(data=self.ssl_data, distribution=self.distribution, model=self.model, epoch=epoch,
+            #     V = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model, epoch=epoch,
             #                  last_epoch=True, low_shot=False, plot_tsne=True)
             #
-            #     V_low_shot = Validate(data=self.ssl_data, distribution=self.distribution, model=self.model, epoch=epoch,
+            #     V_low_shot = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model, epoch=epoch,
             #                           last_epoch=False, plot_tsne=True, low_shot=True)
             #
             #     _, _, _, cor_corrupted, p_corrupted = V._get_metrics()

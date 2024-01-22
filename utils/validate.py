@@ -8,6 +8,7 @@ import torch
 import torch.nn.functional as F
 from torchmetrics.functional.classification import binary_auroc as auc
 import torchvision.transforms.functional as TF
+from torch.cuda.amp import autocast
 
 from sklearn.manifold import TSNE
 
@@ -21,9 +22,10 @@ from utils.utils import get_cifar10h, knn_predict
 
 class Validate:
 
-    def __init__(self, data, distribution, model, epoch=None, last_epoch=False, low_shot=False, plot_tsne=False):
+    def __init__(self, data, distribution, model, device, epoch=None, last_epoch=False, low_shot=False, plot_tsne=False):
 
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.device = device
+        self.use_amp = device.type == 'cuda'
 
         self.last_epoch = last_epoch
         self.low_shot = low_shot
@@ -46,6 +48,7 @@ class Validate:
         self.model = model
         self.encoder = self.model.backbone_net
         self.encoder.eval()
+        self.model.eval()
 
         self.epoch = epoch
         self.distribution = distribution
@@ -68,7 +71,8 @@ class Validate:
 
         for n, (x_test, labels_test) in enumerate(data_cifar10h.test_dl):
             with torch.no_grad():
-                feats_test = self.encoder(x_test.to(self.device))
+                with autocast(enabled=self.use_amp):
+                    feats_test = self.encoder(x_test.to(self.device))
                 kappa_test = feats_test.scale
 
             test_kappa += (kappa_test,)
@@ -117,7 +121,8 @@ class Validate:
 
         for n, (x_train, labels_train) in enumerate(self.data.train_eval_dl):
             with torch.no_grad():
-                feats_train = self.encoder(x_train.to(self.device))
+                with autocast(enabled=self.use_amp):
+                    feats_train = self.encoder(x_train.to(self.device))
                 kappa_train = feats_train.scale
                 feats_train = feats_train.loc
             train_features += (F.normalize(feats_train, dim=1),)
@@ -132,7 +137,8 @@ class Validate:
 
         for n, (x_test, labels_test) in enumerate(self.data_test.test_dl):
             with torch.no_grad():
-                feats_test = self.encoder(x_test.to(self.device))
+                with autocast(enabled=self.use_amp):
+                    feats_test = self.encoder(x_test.to(self.device))
                 labels_test = labels_test.to(self.device)
                 kappa_test = feats_test.scale
                 loc_test = feats_test.loc
@@ -210,8 +216,10 @@ class Validate:
                 c_sizes[i] = crop_size
                 x_c[i] = TF.resize(TF.center_crop(x[i], [crop_size]), [x.shape[2], x.shape[3]], antialias=True)
 
-            Unc += (self.encoder(x).scale,)
-            Unc_c += (self.encoder(x_c.to(self.device)).scale,)
+            with torch.no_grad():
+                with autocast(enabled=self.use_amp):
+                    Unc += (self.encoder(x).scale,)
+                    Unc_c += (self.encoder(x_c.to(self.device)).scale,)
 
         Unc = 1 / torch.cat(Unc).to(self.device)
         Unc_c = 1 / torch.cat(Unc_c).to(self.device)
@@ -240,26 +248,26 @@ class Validate:
         test_kappa = ()
         test_loc = ()
 
-        with torch.no_grad():
-            for n, (x, labels) in enumerate(ssl_data.test_dl):
-                feats = self.encoder(x.to(self.device))
-                labels = labels.to(self.device)
-                kappa = feats.scale
-                loc = feats.loc
+        for n, (x, labels) in enumerate(ssl_data.test_dl):
+            with torch.no_grad():
+                with autocast(enabled=self.use_amp):
+                    feats = self.encoder(x.to(self.device))
+            labels = labels.to(self.device)
+            kappa = feats.scale
+            loc = feats.loc
 
-                if self.distribution not in ["sphere", "normal"]:
-                    kappa = 1 / kappa
-                else:
-                    kappa = kappa
+            if self.distribution not in ["sphere", "normal"]:
+                kappa = 1 / kappa
+            else:
+                kappa = kappa
 
-                recall, auroc = self._get_roc(loc, labels, kappa)
+            recall, auroc = self._get_roc(loc, labels, kappa)
 
-                test_labels += (labels.cpu(),)
-                test_kappa += (kappa,)
-                test_loc += (loc,)
-                Recall.append(recall)
-                Auroc.append(auroc)
-
+            test_labels += (labels.cpu(),)
+            test_kappa += (kappa,)
+            test_loc += (loc,)
+            Recall.append(recall)
+            Auroc.append(auroc)
 
             Labels = torch.cat(test_labels).to(self.device)
             U = torch.cat(test_kappa).to(self.device)

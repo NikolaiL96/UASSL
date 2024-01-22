@@ -35,7 +35,7 @@ class Linear_Protocoler(object):
                     feats = self.encoder(x.to(self.device))
                 labels = labels.to(self.device)
                 dist = 1 / feats.scale
-                feats = feats.mean
+                feats = feats.loc
 
                 feats = F.normalize(feats, dim=-1)
                 closest_idxes = feats.matmul(feats.transpose(-2, -1)).topk(2)[1][:, 1]

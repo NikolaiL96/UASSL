@@ -60,11 +60,9 @@ def load_dataset(dataset, data_root, augmentation_type="BYOL", dl_kwargs=None):
     if dataset == 'cifar10':
         ssl_data = SSL_CIFAR10(data_root, augmentation_type, CIFAR10_NORM, dl_kwargs)
         in_channels = 3
-        ad_ds = SSL_CIFAR100(data_root, augmentation_type, CIFAR10_NORM, dl_kwargs)
     elif dataset == 'cifar100':
         ssl_data = SSL_CIFAR100(data_root, augmentation_type, CIFAR100_NORM, dl_kwargs)
         in_channels = 3
-        ad_ds = SSL_CIFAR10(data_root, augmentation_type, CIFAR100_NORM, dl_kwargs)
     elif dataset == 'fashionmnist':
         ssl_data = SSL_FashionMNIST(data_root, augmentation_type, FASHION_NORM, dl_kwargs)
         in_channels = 1
