@@ -30,6 +30,7 @@ class SSL_Trainer(object):
         self.ssl_loss_hist = []
         self.kl_loss_hist = []
         self.unc_loss_hist = []
+        self.dist_std_hist_stats = {'min': [], 'max': [], 'mean': [], 'diversity': []}
 
         self._iter_scheduler = False
         self._hist_lr = []
@@ -90,6 +91,10 @@ class SSL_Trainer(object):
             self._epoch_ssl_loss += ssl_loss.detach()
             self._epoch_kl_loss += kl_loss.detach()
             self._epoch_unc_loss += unc_loss.detach()
+            self._dist_std_stats['min'] = min([self._dist_std_stats['min'], dist1.scale.min().item()])
+            self._dist_std_stats['max'] = max([self._dist_std_stats['max'], dist1.scale.max().item()])
+            self._dist_std_stats['mean'] += dist1.scale.mean().item()
+            self._dist_std_stats['diversity'] += dist1.scale.std().item()
 
             if torch.isnan(loss) or torch.isinf(loss):
                 print(f"We have a NAN or Inf Loss in either SSL {ssl_loss} or KL {kl_loss}")
@@ -163,6 +168,8 @@ class SSL_Trainer(object):
             self._epoch_kl_loss = torch.zeros(1, device=self.device)
             self._epoch_kappa_min = torch.zeros(1, device=self.device)
             self._epoch_kappa_max = torch.zeros(1, device=self.device)
+            self._dist_std_stats = {'min': 1e8, 'max': 1e8, 'mean': torch.zeros(1, device=self.device),
+                                    'diversity': torch.zeros(1, device=self.device)}
 
             start_time = time.time()
 
@@ -185,6 +192,11 @@ class SSL_Trainer(object):
             self.ssl_loss_hist.append(self._epoch_ssl_loss.item() / self._train_len)
             self.kl_loss_hist.append(self._epoch_kl_loss.item() / self._train_len)
             self.unc_loss_hist.append(self._epoch_unc_loss.item() / self._train_len)
+
+            self.dist_std_hist_stats['min'].append(self._dist_std_stats['min'])
+            self.dist_std_hist_stats['max'].append(self._dist_std_stats['max'])
+            self.dist_std_hist_stats['mean'].append(self._dist_std_stats['mean'].item() / self._train_len)
+            self.dist_std_hist_stats['diversity'].append(self._dist_std_stats['diversity'] / self._train_len)
 
             recall, auroc, knn = self.evaluate(**eval_params)
 
@@ -221,7 +233,9 @@ class SSL_Trainer(object):
                           f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')
 
                 print(f'SSL Loss: {self.ssl_loss_hist[-1]:0.4f}, Regularisation Loss: {self.kl_loss_hist[-1]:0.5f}, '
-                      f'Uncertainty Loss: {self.unc_loss_hist[-1]:0.4f}')
+                      f'Uncertainty Loss: {self.unc_loss_hist[-1]:0.4f}, Std [mean/min/max]: '
+                      f'{self.dist_std_hist_stats["mean"][-1]:0.2f}, {self.dist_std_hist_stats["min"][-1]:0.2f}, '
+                      f'{self.dist_std_hist_stats["max"][-1]:0.2f}]')
 
             # Run evaluation
             # if epoch == num_epochs - 1:
