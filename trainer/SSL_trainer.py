@@ -30,7 +30,6 @@ class SSL_Trainer(object):
         self.ssl_loss_hist = []
         self.kl_loss_hist = []
         self.unc_loss_hist = []
-        self.distortion_loss_hist = []
 
         self._iter_scheduler = False
         self._hist_lr = []

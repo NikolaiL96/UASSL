@@ -24,7 +24,6 @@ class SimCLR(nn.Module):
 
         self.backbone_net = backbone_net
         self.rep_dim = self.backbone_net.fc.in_features
-        self.kappa = None
 
         if backbone_net.name != "UncertaintyNet":
             backbone_net.fc = nn.Identity()
@@ -84,31 +83,29 @@ class SimCLR(nn.Module):
     def compute_ssl_loss(self, dist1, dist2):
         n_batch = dist1.loc.shape[0]
         if self.loss == "NT-Xent":
-            p1 = self.projector(dist1.rsample())
-            p2 = self.projector(dist2.rsample())
-            ssl_loss = self.loss_fn(p1, p2)
+            p1 = self.projector(dist1.loc)
+            p2 = self.projector(dist2.loc)
+            return self.loss_fn(p1, p2)
 
-        elif "MCNT-Xent" in self.loss:
+        if "MCNT-Xent" in self.loss:
             z1 = dist1.rsample((self.n_mc,)).view(n_batch * self.n_mc, -1)
             z2 = dist2.rsample((self.n_mc,)).view(n_batch * self.n_mc, -1)
 
             p1 = self.projector(z1)
             p2 = self.projector(z2)
-            ssl_loss = self.loss_fn(p1.view(self.n_mc, n_batch, -1), p2.view(self.n_mc, n_batch, -1))
+            return self.loss_fn(p1.view(self.n_mc, n_batch, -1), p2.view(self.n_mc, n_batch, -1))
 
-        elif self.loss == "KL_Loss":
+        if self.loss == "KL_Loss":
             if not self.projector_hidden:
-                ssl_loss = self.loss_fn(dist1, dist2)
+                return self.loss_fn(dist1, dist2)
             elif self.projector and self.distribution_type == "normal":
                 pz1, pk1 = self.projector(dist1.loc, dist1.scale)
                 pz2, pk2 = self.projector(dist2.loc, dist2.scale)
-                ssl_loss = self.loss_fn(Normal(pz1, pk1), Normal(pz2, pk2))
+                return self.loss_fn(Normal(pz1, pk1), Normal(pz2, pk2))
             else:
                 raise TypeError("Please use the Probabilistic Projection head with Normal distribution.")
         else:
             raise TypeError("Please specify a correct loss.")
-
-        return ssl_loss
 
     def compute_uncertainty_loss(self, dist1, dist2):
         if self.lambda_unc != 0.:

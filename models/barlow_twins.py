@@ -25,7 +25,6 @@ class BarlowTwins(nn.Module):
 
         self.backbone_net = backbone_net
         self.rep_dim = self.backbone_net.fc.in_features
-        self.kappa = None
 
         if backbone_net.name != "UncertaintyNet":
             backbone_net.fc = nn.Identity()
@@ -38,7 +37,7 @@ class BarlowTwins(nn.Module):
 
         # Define projector
         if projector_hidden:
-            self.projector = MLP(self.rep_dim, projector_hidden, bias=False, batchnorm_last=True)
+            self.projector = MLP(self.rep_dim, projector_hidden, bias=False)
         else:  # Don't use projector
             self.projector = nn.Identity()
 
