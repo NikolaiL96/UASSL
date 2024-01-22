@@ -71,10 +71,14 @@ class BarlowTwins(nn.Module):
         # Get standard barlow twin loss
         ssl_loss = self.loss_fn(p1, p2, self.lambda_bt)
         var_reg = self.regularizer((dist1, dist2))
+        unc_loss = self.compute_uncertainty_loss(dist1, dist2)
 
+        return ssl_loss, var_reg, unc_loss, (dist1, dist2)
+
+    def compute_uncertainty_loss(self, dist1, dist2):
         if self.lambda_unc != 0.:
             unc_loss = self.uncertainty_loss(dist1, dist2)
         else:
-            torch.tensor([1.0], device=dist1.loc.device)
+            unc_loss = torch.tensor([0.0], device=dist1.loc.device)
 
-        return ssl_loss, var_reg, unc_loss, (dist1, dist2)
+        return unc_loss
