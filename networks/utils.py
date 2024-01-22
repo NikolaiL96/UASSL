@@ -1,19 +1,6 @@
 import torch
 import torch.nn as nn
 
-class TemperatureNet(nn.Module):
-    def __init__(self,):
-        super().__init__()
-
-        self.linear = torch.nn.Linear(1, 1)
-        self.softplus = torch.nn.Softplus()
-
-    def forward(self, x):
-        out = self.linear(x)
-        out = self.softplus(out)
-        return torch.clamp(out, min=0.00001, max=50)
-
-
 # Code from facebook ConvNext implementation:
 # https://github.com/facebookresearch/ConvNeXt/blob/main/models/convnext.py#L119
 class LayerNorm2D(nn.Module):

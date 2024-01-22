@@ -43,7 +43,9 @@ class Validate:
             dl_kwargs = {"batch_size": 512, "shuffle": True, "num_workers": min(os.cpu_count(), 0)}
             self.data_test, *_ = load_dataset(oob_data, "./data/", augmentation_type="BYOL", dl_kwargs=dl_kwargs)
         else:
-            self.data_test = self.data
+            dl_kwargs = {"batch_size": 512, "shuffle": False, "num_workers": min(os.cpu_count(), 0)}
+            #self.data_test = self.data
+            self.data_test, *_ = load_dataset("cifar10", "./data/", augmentation_type="BYOL", dl_kwargs=dl_kwargs)
 
         self.model = model
         self.encoder = self.model.backbone_net

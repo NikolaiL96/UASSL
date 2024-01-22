@@ -83,9 +83,8 @@ class SSL_Trainer(object):
                 forward_time += time.time() - current_timestep
                 current_timestep = time.time()
             # Extract
-            with autocast(enabled=self.use_amp):
-                ssl_loss, kl_loss, unc_loss, (dist1, dist2) = loss
-                loss = ssl_loss + kl_loss + unc_loss
+            ssl_loss, kl_loss, unc_loss, (dist1, dist2) = loss
+            loss = ssl_loss + kl_loss + unc_loss
 
             # Save stats
             self._epoch_ssl_loss += ssl_loss.detach()
