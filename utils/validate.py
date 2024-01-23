@@ -160,6 +160,9 @@ class Validate:
             Recall.append(recall)
             Auroc.append(auroc)
 
+
+        print(Recall, Auroc)
+
         if self.last_epoch:
             p_corrupted, cor_corrupted = self.corrupted_img()
         else:
@@ -169,9 +172,9 @@ class Validate:
 
         if self.plot_tsne:
             dataset = str(self.data_test.test_dl.dataset).split("\n")[0].split(" ")[1]
-            self.vis_t_SNE(test_loc, test_labels, uncertainty, dataset)
+            self.vis_t_SNE(test_loc, test_labels, test_uncertainty, dataset)
 
-        return torch.cat(Auroc).mean(), torch.as_tensor(Recall).mean(), knn, cor_corrupted, p_corrupted
+        return torch.as_tensor(Auroc).mean(), torch.as_tensor(Recall).mean(), knn, cor_corrupted, p_corrupted
 
     @torch.no_grad()
     def corrupted_img(self):
