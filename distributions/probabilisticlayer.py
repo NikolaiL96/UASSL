@@ -53,7 +53,7 @@ class Probabilistic_Layer(nn.Module):
             kappa = const * nn.functional.softplus(feats[:, -1]) + self.eps
             return powerspherical.PowerSpherical(mu, kappa)
 
-        if self.distribution == "powerspherical_epx":
+        if self.distribution == "powerspherical_exp":
             feats = self.layer(x)
             mu = nn.functional.normalize(feats[:, :self.dim], dim=1)
 
