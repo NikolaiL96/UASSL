@@ -31,8 +31,6 @@ class BarlowTwins(nn.Module):
             self.backbone_net.fc = Probabilistic_Layer(distribution_type, in_features=self.rep_dim)
 
         self.distribution_type = distribution_type
-
-        self.lambda_bt = lambda_bt
         self.lambda_unc = lambda_unc
 
         # Define projector
@@ -42,7 +40,7 @@ class BarlowTwins(nn.Module):
             self.projector = nn.Identity()
 
         if loss == "BT_Loss":
-            self.loss_fn = BT_Loss(projector_hidden, self.rep_dim)
+            self.loss_fn = BT_Loss(projector_hidden, self.rep_dim, lambda_bt)
             print(f"We use the {loss}.")
         else:
             raise ValueError("Specify a correct loss.")
@@ -68,7 +66,7 @@ class BarlowTwins(nn.Module):
         p2 = self.projector(dist2.rsample())
 
         # Get standard barlow twin loss
-        ssl_loss = self.loss_fn(p1, p2, self.lambda_bt)
+        ssl_loss = self.loss_fn(p1, p2)
         var_reg = self.regularizer((dist1, dist2))
         unc_loss = self.compute_uncertainty_loss(dist1, dist2)
 

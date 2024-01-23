@@ -197,7 +197,7 @@ class SSL_Trainer(object):
             self.dist_std_hist_stats['mean'].append(self._dist_std_stats['mean'].item() / self._train_len)
             self.dist_std_hist_stats['diversity'].append(self._dist_std_stats['diversity'] / self._train_len)
 
-            recall, auroc, knn = self.evaluate(**eval_params)
+            #recall, auroc, knn = self.evaluate(**eval_params)
 
             if self.tb_logger:
                 self.tb_logger.add_scalar('loss/loss', self.loss_hist[-1], epoch)
@@ -214,18 +214,18 @@ class SSL_Trainer(object):
                 V = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model,
                              epoch=epoch, last_epoch=False, low_shot=False)
 
-                auroc2, recall2, knn2, _, _ = V._get_metrics()
+                auroc, recall, knn, _, _ = V._get_metrics()
                 #self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
                 #self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
-                print(f"Auroc2: {auroc2.item():0.3f}, Recall2: {recall2.item():0.3f}, knn2: {knn2.item():0.1f}")
+                #print(f"Auroc2: {auroc2.item():0.3f}, Recall2: {recall2.item():0.3f}, knn2: {knn2.item():0.1f}")
 
                 self.tb_logger.add_scalar('kappa/AUROC', auroc, epoch)
                 self.tb_logger.add_scalar('kappa/R@1', recall, epoch)
                 self.tb_logger.add_scalar('kappa/knn', knn, epoch)
 
             if verbose:
-                print(f'Epoch: {epoch}, Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc:0.3f}, Recall: {recall:0.3f}'
-                      f', knn: {knn:0.1f}, Time epoch: {time.time() - start_time:0.1f}', end='\n')
+                print(f'Epoch: {epoch}, Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc.item():0.3f}, Recall: {recall.item():0.3f}'
+                      f', knn: {knn.item():0.1f}, Time epoch: {time.time() - start_time:0.1f}', end='\n')
 
                 if self.device.type == 'cuda':
                     print(f'GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
