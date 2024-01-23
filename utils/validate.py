@@ -61,7 +61,7 @@ class Validate:
         is_same_class = torch.as_tensor(closest_classes == labels, dtype=torch.float, device=self.device)
         auroc = auc(-unc.squeeze(), is_same_class.int())
 
-        return is_same_class.mean(), auroc
+        return is_same_class.mean(), torch.as_tensor(auroc)
 
     @torch.no_grad()
     def _get_cor(self):
@@ -129,6 +129,8 @@ class Validate:
 
         test_labels, test_uncertainty, test_loc = (), (), ()
         train_features, train_labels = self.extract_train(self.data.train_eval_dl)
+
+        Recall, Auroc = [], []
         total_top1, total_num = 0.0, 0
 
         num_classes = len(set(train_labels.cpu().numpy().tolist()))
@@ -153,19 +155,23 @@ class Validate:
             test_labels += (labels,)
             test_uncertainty += (uncertainty,)
             test_loc += (loc_test,)
-            print(torch.cat(test_uncertainty).shape, self.distribution)
 
-        recall, auroc = self._get_roc(torch.cat(test_loc), torch.cat(test_labels), torch.cat(test_uncertainty))
+            recall, auroc = self._get_roc(torch.cat(test_loc), torch.cat(test_labels), torch.cat(test_uncertainty))
+            Recall.append(recall)
+            Auroc.append(auroc)
 
-        p_corrupted, cor_corrupted = self.corrupted_img() if self.last_epoch \
-            else (torch.zeros(1, device=self.device), torch.zeros(1, device=self.device))
+        if self.last_epoch:
+            p_corrupted, cor_corrupted = self.corrupted_img()
+        else:
+            p_corrupted, cor_corrupted = torch.zeros(1, device=self.device), torch.zeros(1, device=self.device)
+
         knn = torch.tensor(total_top1 / total_num * 100) if not self.low_shot else torch.zeros(1, device=self.device)
 
         if self.plot_tsne:
             dataset = str(self.data_test.test_dl.dataset).split("\n")[0].split(" ")[1]
             self.vis_t_SNE(test_loc, test_labels, uncertainty, dataset)
 
-        return torch.as_tensor(auroc), torch.as_tensor(recall), knn, cor_corrupted, p_corrupted
+        return torch.cat(Auroc).mean(), torch.as_tensor(Recall).mean(), knn, cor_corrupted, p_corrupted
 
     @torch.no_grad()
     def corrupted_img(self):
