@@ -43,7 +43,7 @@ class Probabilistic_Layer(nn.Module):
         if self.distribution == "sphere" or self.distribution == "sphereNoFC":
             mu = self.layer(x)
             norm_mu = torch.linalg.norm(mu, dim=1, keepdim=True)
-            return pointdistribution.PointDistribution(mu / norm_mu, norm_mu)
+            return pointdistribution.PointDistribution(mu / norm_mu, norm_mu.squeez())
 
         if self.distribution == "powerspherical":
             feats = self.layer(x)

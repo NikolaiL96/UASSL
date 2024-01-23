@@ -51,12 +51,15 @@ class Validate:
         self.distribution = distribution
 
     @torch.no_grad()
-    def _get_roc(self, loc, labels, kappa):
-        loc = F.normalize(loc, dim=-1)
-        closest_idxes = loc.matmul(loc.transpose(-2, -1)).topk(2)[1][:, 1]
-        closest_classes = labels[closest_idxes]
-        is_same_class = (closest_classes == labels).float()
-        auroc = auc(-kappa.squeeze(), is_same_class.int()).item()
+    def _get_roc(self, feats, labels, unc):
+        feats = F.normalize(feats, dim=-1)
+
+        # Calculated class of nearest neighbor
+        closest_idx = feats.matmul(feats.transpose(-2, -1)).topk(2)[1][:, 1]
+        closest_classes = labels[closest_idx]
+
+        is_same_class = torch.as_tensor(closest_classes == labels, dtype=torch.int, device=self.device)
+        auroc = auc(-unc.squeeze(), is_same_class)
 
         return is_same_class.mean(), auroc
 
@@ -130,23 +133,27 @@ class Validate:
 
         num_classes = len(set(train_labels.cpu().numpy().tolist()))
 
-        for x_test, labels_test in self.data_test.test_dl:
-            x_test, labels_test = x_test.to(self.device), labels_test.to(self.device)
+        for x, labels in self.data_test.test_dl:
+            x, labels = x.to(self.device), labels.to(self.device)
 
             with autocast(enabled=self.use_amp):
-                feats = self.encoder(x_test)
+                feats = self.encoder(x)
 
             loc_test = feats.loc
-            uncertainty = 1 / feats.scale if self.distribution not in ["sphere", "normal"] else feats.scale.squeeze()
+            if self.distribution not in ["sphere", "normal"]:
+                uncertainty = 1 / feats.scale
+            else:
+                uncertainty = feats.scale
 
             if not self.low_shot:
                 pred_labels = knn_predict(loc_test, train_features, train_labels, num_classes, knn_k, knn_t)
-                total_num += x_test.size(0)
-                total_top1 += (pred_labels[:, 0] == labels_test).float().sum().item()
+                total_num += x.size(0)
+                total_top1 += (pred_labels[:, 0] == labels).float().sum().item()
 
-            test_labels += (labels_test,)
+            test_labels += (labels,)
             test_uncertainty += (uncertainty,)
             test_loc += (loc_test,)
+            print(torch.cat(uncertainty).shape, self.distribution)
 
         recall, auroc = self._get_roc(torch.cat(test_loc), torch.cat(test_labels), torch.cat(test_uncertainty))
 
