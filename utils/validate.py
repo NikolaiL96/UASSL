@@ -84,8 +84,10 @@ class Validate:
             cifar10h = get_cifar10h()
             unc = 1 - entropy(cifar10h, axis=1)
 
-            corr = np.corrcoef(kappa, unc.cpu().numpy())
-            rank_corr = spearmanr(kappa, unc.cpu().numpy())[0]
+            corr = np.corrcoef(kappa, unc)
+            rank_corr = spearmanr(kappa, unc)[0]
+            print(kappa, unc)
+            print(corr, rank_corr)
 
             return corr[0, 1], rank_corr
 
@@ -203,7 +205,7 @@ class Validate:
     def corrupted_img(self):
         # Modified from https://github.com/mkirchhof/url/tree/main
         crop_min = torch.tensor(0.1, device=self.device)
-        crop_max = torch.tensor(0.1, device=self.device)
+        crop_max = torch.tensor(0.5, device=self.device)
         k = 0
         crop = torch.rand(len(self.data_test.test_dl.dataset), device=self.device) * (crop_max - crop_min) + crop_min
 
@@ -230,8 +232,7 @@ class Validate:
 
         p_cropped = (Unc < Unc_c).float().mean()
         cor_cropped = spearmanr(-Unc_c.cpu().numpy(), crop.cpu().numpy())[0]
-        print(Unc_c.cpu().numpy(), crop.cpu().numpy())
-        print(Unc_c.cpu().numpy().shape, crop.cpu().numpy().shape)
+
         return p_cropped, cor_cropped
 
     @torch.no_grad()
