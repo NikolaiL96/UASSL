@@ -30,6 +30,7 @@ def my_config():
     seed = 3407
     dataset = 'cifar10'
     network = 'resnet18'
+    optimizer = "SGD"
     optim_params = None
     loss = None
     lambda_reg = 0.01
@@ -54,7 +55,7 @@ def my_config():
 
     train_params = {
         "num_epochs": int(epochs),
-        "optimizer": SGD,
+        "optimizer": SGD if optimizer == "SGD" else Lamb,
         "scheduler": CosineAnnealingLR,
         "warmup_epochs": int(warmup),
         "iter_scheduler": True,

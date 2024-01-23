@@ -32,8 +32,9 @@ def get_data_root_and_path(cluster, run_final):
 
 def get_optimizer(optimizer):
     if optimizer == "SGD":
-        optim_params = {"lr": args.lr, "weight_decay": 5e-4}
-
+        optim_params = {"lr": args.lr, "momentum": 0.9, "weight_decay": 5e-4}
+    if optimizer == "Lamb":
+        optim_params = {"lr": args.lr, "max_grad_norm": 10., "weight_decay": 5e-4}
     return optim_params
 
 if __name__ == "__main__":
@@ -57,6 +58,7 @@ if __name__ == "__main__":
     parser.add_argument("--fine_tuned", default=False, type=str2bool)
     parser.add_argument("--lambda_bt", "-lbt", default=0.005, type=float)
     parser.add_argument("--lambda_unc", "-lu", default=0., type=float)
+    parser.add_argument("--optimizer", default="SGD", type=str)
     parser.add_argument("--run_final", "-rf", default=False, type=str2bool)
 
     args = parser.parse_args()
@@ -86,7 +88,8 @@ if __name__ == "__main__":
                   "network": args.network,
                   "method": args.method,
                   "dataset": args.dataset,
-                  "optim_params": {"lr": args.lr, "weight_decay": 5e-4},
+                  "optimizer": args.optimizer,
+                  "optim_params": get_optimizer(args.optimizer),
                   "epochs": args.epochs,
                   "warmup": args.warmup,
                   "batch_size": args.batch_size,
