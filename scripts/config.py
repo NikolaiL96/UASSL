@@ -59,9 +59,7 @@ def my_config():
         "scheduler": CosineAnnealingLR,
         "warmup_epochs": int(warmup),
         "iter_scheduler": True,
-        "evaluate_at": [1, 10, 15, 25, 50, 75, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 650, 700, 750, 800],
-        "verbose": True,
-    }
+        "evaluate_at": [1, 10, 15, 25, 50, 75, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 650, 700, 750, 800]}
 
     ex.observers = [FileStorageObserver(artifact_dir)]
 

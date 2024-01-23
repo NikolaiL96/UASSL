@@ -64,7 +64,7 @@ class Validate:
         return is_same_class.mean(), torch.as_tensor(auroc)
 
     @torch.no_grad()
-    def _get_cor(self):
+    def get_cor(self):
         test_kappa = ()
         dl_kwargs = {"batch_size": 512, "shuffle": False, "num_workers": min(os.cpu_count(), 0)}
         data_cifar10h, *_ = load_dataset("cifar10", "./data/", augmentation_type="BYOL", dl_kwargs=dl_kwargs)
@@ -87,13 +87,13 @@ class Validate:
             corr = np.corrcoef(kappa, unc)
             rank_corr = spearmanr(kappa, unc)
 
-            return corr[0, 1], rank_corr.statistic
+            return torch.as_tensor(corr[0, 1], device=self.device), torch.as_tensor(rank_corr.statistic, self.device)
 
         except Exception as e:
             print(e)
             return torch.zeros(1), torch.zeros(1)
 
-    def _get_linear_probing(self, epochs=10, lr=1e-2, oob_data=False):
+    def get_linear_probing(self, epochs=10, lr=1e-2, oob_data=False):
         if not oob_data:
             test_loader = self.data.test_dl
         else:
@@ -106,7 +106,7 @@ class Validate:
         return linear_evaluator.linear_accuracy(test_loader)
 
     @torch.no_grad()
-    def extract_train(self, train_dl):
+    def _extract_train(self, train_dl):
         # extract train
         train_features, train_labels, train_dist = (), (), ()
 
@@ -125,10 +125,12 @@ class Validate:
         return train_features, train_labels
 
     @torch.no_grad()
-    def recall_auroc(self, test_dl):
+    def recall_auroc(self, test_dl=None):
+        dl = self.data_test.test_dl if test_dl is None else test_dl
+
         Recall = []
         Auroc = []
-        for x, labels in test_dl:
+        for x, labels in dl:
             x, labels = x.to(self.device), labels.to(self.device)
 
             with autocast(enabled=self.use_amp):
@@ -152,11 +154,22 @@ class Validate:
         return Recall.mean(), Auroc.mean()
 
     @torch.no_grad()
-    def _get_metrics(self, knn_k: int = 200, knn_t: float = 0.1):
+    def knn_accuracy(self, knn_k: int = 200, knn_t: float = 0.1):
+        train_features, train_labels = self._extract_train(train_dl=self.data.train_dl)
+
+        accuracy = self._knn_predict_with_given_features_and_labels(
+            train_features=train_features,
+            train_labels=train_labels,
+            test_dl=self.data_test.test_dl,
+            knn_k=knn_k,
+            knn_t=knn_t)
+
+        return accuracy
+
+    @torch.no_grad()
+    def get_metrics(self):
 
         test_labels, test_uncertainty, test_loc = (), (), ()
-        train_features, train_labels = self.extract_train(self.data.train_eval_dl)
-
 
         for n, (x, labels) in enumerate(self.data_test.test_dl):
             x, labels = x.to(self.device), labels.to(self.device)
@@ -304,3 +317,35 @@ class Validate:
         path = f"/home/lorenzni/imgs/{id}"
         Path(path).mkdir(parents=True, exist_ok=True)
         fig.savefig(f'{path}/{name}.pdf', dpi=fig.dpi)
+
+    @torch.no_grad()
+    def _knn_predict_with_given_features_and_labels(
+            self,
+            train_features,
+            train_labels,
+            test_dl,
+            knn_k: int = 200,
+            knn_t: float = 0.1,
+            num_classes=None
+    ):
+        if num_classes is None:
+            num_classes = len(set(train_labels.detach().cpu().numpy().tolist()))
+
+        # Test
+        total_top1, total_num = 0.0, 0
+        for x, target in test_dl:
+            x, target = x.to(self.device), target.to(self.device)
+
+            with autocast(enabled=self.use_amp):
+                features = self.encoder(x)
+
+            features = features.loc
+            features = F.normalize(features, dim=1)
+
+            # Get knn predictions
+            pred_labels = knn_predict(features, train_features, train_labels, num_classes, knn_k, knn_t)
+
+            total_num += x.size(0)
+            total_top1 += (pred_labels[:, 0] == target).float().sum().item()
+
+        return total_top1 / total_num * 100

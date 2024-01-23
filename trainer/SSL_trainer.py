@@ -133,7 +133,7 @@ class SSL_Trainer(object):
                 f"Loading time {loading_time:.1f}s, Forward Time {forward_time:.1f}s, Backward Time {backward_time:.1f}s")
 
     def train(self, num_epochs, optimizer, scheduler, optim_params, scheduler_params, warmup_epochs=10,
-              iter_scheduler=True, evaluate_at=[100, 200, 400], verbose=True):
+              iter_scheduler=True, evaluate_at=[100, 200, 400]):
 
         # Check and Load existing model
         epoch_start, optim_state, sched_state = self.load_model(self.save_root, return_vals=True)
@@ -219,6 +219,17 @@ class SSL_Trainer(object):
             self.tb_logger.add_scalar('kappa/kappa_min', self.dist_std_hist_stats["min"][-1], epoch)
             self.tb_logger.add_scalar('kappa/kappa_max', self.dist_std_hist_stats["max"][-1], epoch)
 
+            print(f'Epoch: {epoch}, Time epoch: {time.time() - start_time:0.1f}', end='\n')
+
+            if self.device.type == 'cuda':
+                print(f'GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
+                      f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')
+
+            print(f'SSL Loss: {self.ssl_loss_hist[-1]:0.4f}, Regularisation Loss: {self.kl_loss_hist[-1]:0.5f}, '
+                  f'Uncertainty Loss: {self.unc_loss_hist[-1]:0.4f}, Std [mean/min/max]: '
+                  f'[{self.dist_std_hist_stats["mean"][-1]:0.2f}, {self.dist_std_hist_stats["min"][-1]:0.2f}, '
+                  f'{self.dist_std_hist_stats["max"][-1]:0.2f}]')
+
             if (epoch + 1) % 1 == 0:
                 recall, auroc, knn = self.evaluate()
 
@@ -228,72 +239,37 @@ class SSL_Trainer(object):
 
                 print(f"Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc:0.3f}, Recall: {recall:0.3f}, knn: {knn:0.1f}")
 
-            if verbose:
-                print(
-                    f'Epoch: {epoch}, Time epoch: {time.time() - start_time:0.1f}', end='\n')
-
-                if self.device.type == 'cuda':
-                    print(f'GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
-                          f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')
-
-                print(f'SSL Loss: {self.ssl_loss_hist[-1]:0.4f}, Regularisation Loss: {self.kl_loss_hist[-1]:0.5f}, '
-                      f'Uncertainty Loss: {self.unc_loss_hist[-1]:0.4f}, Std [mean/min/max]: '
-                      f'[{self.dist_std_hist_stats["mean"][-1]:0.2f}, {self.dist_std_hist_stats["min"][-1]:0.2f}, '
-                      f'{self.dist_std_hist_stats["max"][-1]:0.2f}]')
-
             # Run evaluation
-            # if epoch == num_epochs - 1:
-            #     V = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model, epoch=epoch,
-            #                  last_epoch=True, low_shot=False, plot_tsne=True)
-            #
-            #     V_low_shot = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model, epoch=epoch,
-            #                           last_epoch=False, plot_tsne=True, low_shot=True)
-            #
-            #     _, _, _, cor_corrupted, p_corrupted = V._get_metrics()
-            #     Auroc_100, Recall_100, knn_100, _, _ = V_low_shot._get_metrics()
-            #
-            #     linear_acc_100 = V_low_shot._get_linear_probing()
-            #     linear_acc_10 = V._get_linear_probing()
-            #
-            #     cor_pearson, cor_spearman = V._get_cor()
-            #
-            #     if not isinstance(cor_pearson, float):
-            #         cor_pearson = cor_pearson.item()
-            #
-            #     if not isinstance(cor_spearman, float):
-            #         cor_spearman = cor_spearman.item()
-            #
-            #     self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
-            #     self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
-            #
-            #     self.tb_logger.add_scalar('kappa/cor_pearson', cor_pearson, epoch)
-            #     self.tb_logger.add_scalar('kappa/cor_spearman', cor_spearman, epoch)
-            #
-            #     self.tb_logger.add_scalar('ZeroShot/AUROC_CIFAR100', Auroc_100, epoch)
-            #     self.tb_logger.add_scalar('ZeroShot/R@1_CIFAR100', Recall_100, epoch)
-            #     self.tb_logger.add_scalar('ZeroShot/knn_CIFAR100', knn_100, epoch)
-            #     self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR100', linear_acc_100, epoch)
-            #     self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR10', linear_acc_10, epoch)
-            #     print(f"Low-Shot: AUROC={Auroc_100:0.4f}, R@1={Recall_100:0.3f}, KNN={knn_100.item():0.1f}")
+            if epoch == num_epochs - 1:
+                V = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model, epoch=epoch,
+                             last_epoch=True, low_shot=False, plot_tsne=True)
+
+                V_low_shot = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model, epoch=epoch,
+                                      last_epoch=False, plot_tsne=True, low_shot=True)
+
+                cor_corrupted, p_corrupted = V.get_metrics()
+                recall_cifar100, auroc_cifar100 = V_low_shot.recall_auroc()
+
+                linear_acc_100 = V_low_shot.get_linear_probing()
+                linear_acc_10 = V.get_linear_probing()
+                knn_cifar100 = V_low_shot.knn_accuracy()
+
+                cor_pearson, cor_spearman = V.get_cor()
+
+                self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
+                self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
+
+                self.tb_logger.add_scalar('kappa/cor_pearson', cor_pearson, epoch)
+                self.tb_logger.add_scalar('kappa/cor_spearman', cor_spearman, epoch)
+
+                self.tb_logger.add_scalar('ZeroShot/AUROC_CIFAR100', auroc_cifar100, epoch)
+                self.tb_logger.add_scalar('ZeroShot/R@1_CIFAR100', recall_cifar100, epoch)
+                self.tb_logger.add_scalar('ZeroShot/knn_CIFAR100', knn_cifar100, epoch)
+                self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR100', linear_acc_100, epoch)
+                self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR10', linear_acc_10, epoch)
 
             if (epoch) in evaluate_at:
                 self.save_model(self.save_root, epoch + 1)
-
-        # Save final model
-        # self.save_model(self.save_root, num_epochs)
-        #
-        # recall_cars, auroc_cars = V.get_zero_shot_metrics("cars196")
-        # self.tb_logger.add_scalar('ZeroShot/AUROC_CARS', auroc_cars, epoch)
-        # self.tb_logger.add_scalar('ZeroShot/R@1_CARS', recall_cars, epoch)
-        #
-        # recall_cup, auroc_cup = V.get_zero_shot_metrics("cup200")
-        # self.tb_logger.add_scalar('ZeroShot/AUROC_CUP', auroc_cup, epoch)
-        # self.tb_logger.add_scalar('ZeroShot/R@1_CUP', recall_cup, epoch)
-        #
-        # recall_sop, auroc_sop = V.get_zero_shot_metrics("sop")
-        # self.tb_logger.add_scalar('ZeroShot/AUROC_SOP', auroc_sop, epoch)
-        # self.tb_logger.add_scalar('ZeroShot/R@1_SOP', recall_sop, epoch)
-        #
 
     def save_model(self, save_root, epoch):
         save_data = {'model': self.model.state_dict(),
