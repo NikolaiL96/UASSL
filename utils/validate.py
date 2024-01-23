@@ -153,7 +153,7 @@ class Validate:
             test_labels += (labels,)
             test_uncertainty += (uncertainty,)
             test_loc += (loc_test,)
-            print(torch.cat(uncertainty).shape, self.distribution)
+            print(torch.cat(test_uncertainty).shape, self.distribution)
 
         recall, auroc = self._get_roc(torch.cat(test_loc), torch.cat(test_labels), torch.cat(test_uncertainty))
 
