@@ -137,7 +137,7 @@ class Validate:
                 feats = self.encoder(x_test)
 
             loc_test = feats.loc
-            uncertainty = 1 / feats.scale if self.distribution not in ["sphere", "normal"] else feats.scale
+            uncertainty = 1 / feats.scale if self.distribution not in ["sphere", "normal"] else feats.scale.squeeze()
 
             if not self.low_shot:
                 pred_labels = knn_predict(loc_test, train_features, train_labels, num_classes, knn_k, knn_t)

@@ -45,7 +45,7 @@ if __name__ == "__main__":
     parser.add_argument("--method", "-m", default="SimCLR")
     parser.add_argument("--epochs", "-e", default=800, type=int)
     parser.add_argument("--warmup", "-w", default=10, type=int)
-    parser.add_argument("--distribution", "-dist", default="powerspherical")
+    parser.add_argument("--distribution", "-dist", default="sphere")
     parser.add_argument("--dataset", "-d", default="cifar10")
     parser.add_argument("--lr", default=6e-2, type=float)
     parser.add_argument("--loss", "-l", default="NT-Xent")

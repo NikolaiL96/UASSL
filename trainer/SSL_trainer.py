@@ -130,8 +130,7 @@ class SSL_Trainer(object):
             print("For the first Epoch, we have the following Profiling results:")
             print(f"Loading time {loading_time:.1f}s, Forward Time {forward_time:.1f}s, Backward Time {backward_time:.1f}s")
 
-
-    def train(self, num_epochs, optimizer, scheduler, optim_params, scheduler_params, warmup_epochs=10,
+    def train(self, num_epochs, optimizer, scheduler, optim_params, scheduler_params, eval_params, warmup_epochs=10,
               iter_scheduler=True, evaluate_at=[100, 200, 400], verbose=True):
 
         # Check and Load existing model
@@ -208,7 +207,7 @@ class SSL_Trainer(object):
             self.dist_std_hist_stats['mean'].append(self._dist_std_stats['mean'].item() / self._train_len)
             self.dist_std_hist_stats['diversity'].append(self._dist_std_stats['diversity'] / self._train_len)
 
-            #recall, auroc, knn = self.evaluate(**eval_params)
+            recall2, auroc2, knn2 = self.evaluate(**eval_params)
 
             if self.tb_logger:
                 self.tb_logger.add_scalar('loss/loss', self.loss_hist[-1], epoch)
@@ -226,17 +225,18 @@ class SSL_Trainer(object):
                              epoch=epoch, last_epoch=False, low_shot=False)
 
                 auroc, recall, knn, _, _ = V._get_metrics()
-                #self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
-                #self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
-                #print(f"Auroc2: {auroc2.item():0.3f}, Recall2: {recall2.item():0.3f}, knn2: {knn2.item():0.1f}")
+                # self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
+                # self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
+                print(f"Auroc2: {auroc2:0.3f}, Recall2: {recall2:0.3f}, knn2: {knn2:0.1f}")
 
                 self.tb_logger.add_scalar('kappa/AUROC', auroc, epoch)
                 self.tb_logger.add_scalar('kappa/R@1', recall, epoch)
                 self.tb_logger.add_scalar('kappa/knn', knn, epoch)
 
             if verbose:
-                print(f'Epoch: {epoch}, Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc.item():0.3f}, Recall: {recall.item():0.3f}'
-                      f', knn: {knn.item():0.1f}, Time epoch: {time.time() - start_time:0.1f}', end='\n')
+                print(
+                    f'Epoch: {epoch}, Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc.item():0.3f}, Recall: {recall.item():0.3f}'
+                    f', knn: {knn.item():0.1f}, Time epoch: {time.time() - start_time:0.1f}', end='\n')
 
                 if self.device.type == 'cuda':
                     print(f'GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
