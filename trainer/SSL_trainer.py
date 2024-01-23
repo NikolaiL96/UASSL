@@ -129,7 +129,8 @@ class SSL_Trainer(object):
                 current_timestep = time.time()
         if epoch_id == 0:
             print("For the first Epoch, we have the following Profiling results:")
-            print(f"Loading time {loading_time:.1f}s, Forward Time {forward_time:.1f}s, Backward Time {backward_time:.1f}s")
+            print(
+                f"Loading time {loading_time:.1f}s, Forward Time {forward_time:.1f}s, Backward Time {backward_time:.1f}s")
 
     def train(self, num_epochs, optimizer, scheduler, optim_params, scheduler_params, warmup_epochs=10,
               iter_scheduler=True, evaluate_at=[100, 200, 400], verbose=True):
@@ -142,7 +143,7 @@ class SSL_Trainer(object):
         self._total_iters = num_epochs * self._train_len
 
         # Define Optimizer
-        #params = self.model.parameters()
+        # params = self.model.parameters()
 
         # Define set of trainable parameters
         if self.fine_tune:
@@ -208,60 +209,29 @@ class SSL_Trainer(object):
             self.dist_std_hist_stats['mean'].append(self._dist_std_stats['mean'].item() / self._train_len)
             self.dist_std_hist_stats['diversity'].append(self._dist_std_stats['diversity'] / self._train_len)
 
-            start = torch.cuda.Event(enable_timing=True)
-            end = torch.cuda.Event(enable_timing=True)
-            print(f'GPU Reserved linear protocol before {torch.cuda.memory_reserved(0) // 1000000}MB,'
-                  f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')
-            start.record()
-            recall2, auroc2, knn2 = self.evaluate()
-            end.record()
+            self.tb_logger.add_scalar('loss/loss', self.loss_hist[-1], epoch)
+            self.tb_logger.add_scalar('loss/ssl_loss', self.ssl_loss_hist[-1], epoch)
+            self.tb_logger.add_scalar('loss/kl_loss', self.kl_loss_hist[-1], epoch)
+            self.tb_logger.add_scalar('loss/unc_loss', self.unc_loss_hist[-1], epoch)
 
-            # Waits for everything to finish running
-            torch.cuda.synchronize()
-            print(f"Linear Protocol: {start.elapsed_time(end)}")
-            print(f'GPU Reserved linear protocol after {torch.cuda.memory_reserved(0) // 1000000}MB,'
-                  f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')
+            self.tb_logger.add_scalar('epoch_time', time.time() - start_time, epoch)
 
+            self.tb_logger.add_scalar('kappa/kappa_min', self.dist_std_hist_stats["min"][-1], epoch)
+            self.tb_logger.add_scalar('kappa/kappa_max', self.dist_std_hist_stats["max"][-1], epoch)
 
-            if self.tb_logger:
-                self.tb_logger.add_scalar('loss/loss', self.loss_hist[-1], epoch)
-                self.tb_logger.add_scalar('loss/ssl_loss', self.ssl_loss_hist[-1], epoch)
-                self.tb_logger.add_scalar('loss/kl_loss', self.kl_loss_hist[-1], epoch)
-                self.tb_logger.add_scalar('loss/unc_loss', self.unc_loss_hist[-1], epoch)
-
-                self.tb_logger.add_scalar('epoch_time', time.time() - start_time, epoch)
-
-                self.tb_logger.add_scalar('kappa/kappa_min', self.dist_std_hist_stats["min"][-1], epoch)
-                self.tb_logger.add_scalar('kappa/kappa_max', self.dist_std_hist_stats["max"][-1], epoch)
-
-                # with torch.no_grad():
-                start = torch.cuda.Event(enable_timing=True)
-                end = torch.cuda.Event(enable_timing=True)
-                print(f'GPU Reserved Validate before {torch.cuda.memory_reserved(0) // 1000000}MB,'
-                      f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')
-                start.record()
-                V = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model,
-                             epoch=epoch, last_epoch=False, low_shot=False)
-                auroc, recall, knn, _, _ = V._get_metrics()
-                end.record()
-                torch.cuda.synchronize()
-                print(f"Validate: {start.elapsed_time(end)}")
-                print(f'GPU Reserved after validate{torch.cuda.memory_reserved(0) // 1000000}MB,'
-                      f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')
-
-
-                # self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
-                # self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
-                print(f"Auroc2: {auroc2:0.3f}, Recall2: {recall2:0.3f}, knn2: {knn2:0.1f}")
+            if (epoch + 1) % 1 == 0:
+                recall, auroc, knn = self.evaluate()
 
                 self.tb_logger.add_scalar('kappa/AUROC', auroc, epoch)
                 self.tb_logger.add_scalar('kappa/R@1', recall, epoch)
                 self.tb_logger.add_scalar('kappa/knn', knn, epoch)
 
+                print(f"Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc.item():0.3f}, Recall: {recall.item():0.3f}, "
+                      f"knn: {knn.item():0.1f}")
+
             if verbose:
                 print(
-                    f'Epoch: {epoch}, Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc.item():0.3f}, Recall: {recall.item():0.3f}'
-                    f', knn: {knn.item():0.1f}, Time epoch: {time.time() - start_time:0.1f}', end='\n')
+                    f'Epoch: {epoch}, Time epoch: {time.time() - start_time:0.1f}', end='\n')
 
                 if self.device.type == 'cuda':
                     print(f'GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'

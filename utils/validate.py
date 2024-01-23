@@ -157,10 +157,6 @@ class Validate:
         test_labels, test_uncertainty, test_loc = (), (), ()
         train_features, train_labels = self.extract_train(self.data.train_eval_dl)
 
-        Recall, Auroc = torch.zeros(1, device=self.device), torch.zeros(1, device=self.device)
-        total_top1, total_num = 0.0, 0
-
-        num_classes = len(set(train_labels.cpu().numpy().tolist()))
 
         for n, (x, labels) in enumerate(self.data_test.test_dl):
             x, labels = x.to(self.device), labels.to(self.device)
@@ -174,31 +170,20 @@ class Validate:
             else:
                 uncertainty = feats.scale
 
-            if not self.low_shot:
-                pred_labels = knn_predict(loc, train_features, train_labels, num_classes, knn_k, knn_t)
-                total_num += x.size(0)
-                total_top1 += (pred_labels[:, 0] == labels).float().sum().item()
-
             test_labels += (labels,)
             test_uncertainty += (uncertainty,)
             test_loc += (loc,)
-
-            recall, auroc = self._get_roc(loc, labels, uncertainty)
-            Recall += recall
-            Auroc += auroc
 
         if self.last_epoch:
             p_corrupted, cor_corrupted = self.corrupted_img()
         else:
             p_corrupted, cor_corrupted = torch.zeros(1, device=self.device), torch.zeros(1, device=self.device)
 
-        knn = torch.tensor(total_top1 / total_num * 100) if not self.low_shot else torch.zeros(1, device=self.device)
-
         if self.plot_tsne:
             dataset = str(self.data_test.test_dl.dataset).split("\n")[0].split(" ")[1]
             self.vis_t_SNE(test_loc, test_labels, test_uncertainty, dataset)
 
-        return Auroc/n, Recall/n, knn, cor_corrupted, p_corrupted
+        return cor_corrupted, p_corrupted
 
     @torch.no_grad()
     def corrupted_img(self):
