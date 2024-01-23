@@ -88,8 +88,6 @@ class Validate:
 
             corr = np.corrcoef(unc, unc_h)
             rank_corr = spearmanr(unc, unc_h)[0]
-            print(unc, unc_h)
-            print(corr, rank_corr)
 
             return corr[0, 1], rank_corr
 

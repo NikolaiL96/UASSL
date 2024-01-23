@@ -271,9 +271,6 @@ class SSL_Trainer(object):
                 self.tb_logger.add_scalar('ZeroShot/knn_CIFAR100', knn_cifar100, epoch)
                 self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR100', linear_acc_100, epoch)
 
-                print(cor_corrupted, p_corrupted, cor_pearson, cor_spearman, linear_acc_10, auroc_cifar100, recall_cifar100,
-                      knn_cifar100, linear_acc_100)
-
             if (epoch) in evaluate_at:
                 self.save_model(self.save_root, epoch + 1)
 
