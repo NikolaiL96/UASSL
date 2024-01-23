@@ -22,6 +22,8 @@ class SimCLR(nn.Module):
     ):
         super().__init__()
 
+        self.loss_fn = None
+        self.projector = None
         self.backbone_net = backbone_net
         self.rep_dim = self.backbone_net.fc.in_features
 
@@ -36,8 +38,8 @@ class SimCLR(nn.Module):
         self.n_mc = n_mc
         self.distribution_type = distribution_type
 
-        self.initialize_projector()
-        self.initialize_loss(temperature, n_mc)
+        self.initialize_projector(projector_hidden)
+        self.initialize_loss(loss, temperature, n_mc)
         # Regularizer for the generated distribution
         self.regularizer = Probabilistic_Regularizer(distribution_type, lambda_reg)
 
@@ -50,28 +52,28 @@ class SimCLR(nn.Module):
 
         self.bt_loss = BT_Loss(projector_hidden, self.rep_dim, 0.005)
 
-    def initialize_projector(self):
-        if self.projector_hidden:
+    def initialize_projector(self, projector_hidden):
+        if projector_hidden:
             if self.loss == "KL_Loss" and self.distribution_type == "normal":
-                self.projector = MLP_variational(self.rep_dim, self.projector_hidden, bias=True)
+                self.projector = MLP_variational(self.rep_dim, projector_hidden, bias=True)
             else:
-                self.projector = MLP(self.rep_dim, self.projector_hidden, bias=False)
-            print(f"The projector has {self.projector_hidden} hidden units")
+                self.projector = MLP(self.rep_dim, projector_hidden, bias=False)
+            print(f"The projector has {projector_hidden} hidden units")
         else:
             self.projector = nn.Identity()
             print("No projector is used.")
 
-    def initialize_loss(self, temperature, n_mc):
-        if self.loss == "NT-Xent":
+    def initialize_loss(self, loss, temperature, n_mc):
+        if loss == "NT-Xent":
             self.loss_fn = NTXent(temperature)
-        elif "MCInfoNCE" in self.loss:
-            self.loss_fn = MCNTXent(self.loss, temperature, n_mc)
-        elif self.loss == "KL_Loss":
+        elif "MCInfoNCE" in loss:
+            self.loss_fn = MCNTXent(loss, temperature, n_mc)
+        elif loss == "KL_Loss":
             self.loss_fn = KL_Loss(self.distribution_type, temperature)
         else:
             raise ValueError("Specify a correct loss.")
 
-        print(f"We use the {self.loss}. Temperature set to {temperature}")
+        print(f"We use the {loss}. Temperature set to {temperature}")
 
     def forward(self, x1, x2):
         dist1, dist2 = self.backbone_net(x1), self.backbone_net(x2)
@@ -87,7 +89,7 @@ class SimCLR(nn.Module):
         if self.loss == "NT-Xent":
             p1 = self.projector(dist1.rsample())
             p2 = self.projector(dist2.rsample())
-            return self.bt_loss(p1, p1)
+            return self.bt_loss(p1, p2)
             #return self.loss_fn(p1, p2)
 
         if "MCNT-Xent" in self.loss:
