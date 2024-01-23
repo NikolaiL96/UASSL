@@ -70,73 +70,23 @@ class Linear_Protocoler(object):
         return accuracy
 
     @torch.no_grad()
-    def auroc(self, uncertainties, correctness):
-        auroc_correct = auc(-uncertainties, correctness.int()).item()
-        return auroc_correct
-
-    @torch.no_grad()
-    def _get_uncertainties(self, dl):
-        for n, (x, y) in enumerate(dl):
-            x, y, = x.to(self.device), y.to(self.device)
-            with autocast(enabled=self.use_amp):
-                x = self.encoder(x)
-            x = x.scale
-            if n != 0:
-                dist = torch.cat([dist, x])
-            else:
-                dist = x
-        uncertainties = dist.cpu().numpy()
-        return uncertainties
-
-    @torch.no_grad()
-    def _feats_labels_uncertanties(self, dl):
-        Features = ()
-        Labels = ()
-        Dist = ()
-        for x, labels in dl:
-            x, labels = x.to(self.device), labels.to(self.device)
-
-            with autocast(enabled=self.use_amp):
-                feats = self.encoder(x)
-
-            dist = feats.scale
-            feats = feats.rsample()
-
-            Features += (feats,)
-            Labels += (labels,)
-            Dist += (dist,)
-
-        Features = torch.cat(Features).t().contiguous()
-        Labels = torch.cat(Labels)
-        Dist = torch.cat(Dist)
-        return Features, Labels, Dist
-
-
-    @torch.no_grad()
     def _knn_extract_features_and_labels(self, train_dl, uncertaities=False):
         # extract train
-        train_features = ()
-        train_labels = ()
-        train_dist = ()
+        train_features, train_labels = (), ()
+
         for x, labels in train_dl:
             x, labels = x.to(self.device), labels.to(self.device)
             with autocast(enabled=self.use_amp):
                 feats = self.encoder(x)
-            dist = feats.scale
 
-            if self.variational:
-                feats = feats.mean
+            feats = feats.loc
             train_features += (F.normalize(feats, dim=1),)
             train_labels += (labels,)
-            train_dist += (dist,)
 
         train_features = torch.cat(train_features).t().contiguous()
         train_labels = torch.cat(train_labels)
-        train_dist = torch.cat(train_dist)
-        if uncertaities:
-            return train_features, train_labels, train_dist
-        else:
-            return train_features, train_labels
+
+        return train_features, train_labels
 
     @torch.no_grad()
     def _knn_predict_with_given_features_and_labels(
@@ -159,14 +109,11 @@ class Linear_Protocoler(object):
             with autocast(enabled=self.use_amp):
                 features = self.encoder(x)
 
-            if self.variational:
-                features = features.mean
+            features = features.loc
             features = F.normalize(features, dim=1)
 
             # Get knn predictions
-            pred_labels = knn_predict(
-                features, train_features, train_labels, num_classes, knn_k, knn_t
-            )
+            pred_labels = knn_predict(features, train_features, train_labels, num_classes, knn_k, knn_t)
 
             total_num += x.size(0)
             total_top1 += (pred_labels[:, 0] == target).float().sum().item()
@@ -197,19 +144,11 @@ class Linear_Protocoler(object):
                 # forward
                 with autocast(enabled=self.use_amp):
                     dist = self.encoder(x)
-                if self.variational:
-                    # x = x.mean
-                    x = dist.rsample()
-                else:
-                    x = dist
 
-                if self.exclusion_mode != 'none':
-                    mask = self.filter_uncertainty(dist)
-                    x = x * mask[:, None]
-                    y = y * mask[:]
+                x = dist.loc
                 loss = ce_loss(self.classifier(x), y)
-                # backward
 
+                # backward
                 optimizer.zero_grad()
                 self.scaler.scale(loss).backward()
                 self.scaler.step(optimizer)
@@ -218,29 +157,6 @@ class Linear_Protocoler(object):
             if scheduler:
                 scheduler.step()
 
-    def filter_uncertainty(self, dist, inclusion_p=0.8):
-        s1 = dist.scale
-
-        if self.exclusion_mode == 'random':
-            mask = torch.rand((len(s1))) < inclusion_p
-        elif self.exclusion_mode == 'concentration':
-            # remove part of the batch
-            threshold = torch.topk(s1, k=int((1 - inclusion_p) * len(s1)),
-                                   largest=False, sorted=True).values[-1]
-            mask = (s1 > threshold)
-        elif self.exclusion_mode == 'concentration-sampling':
-            kappa = s1
-            inclusion_scale = 1
-            mu = torch.mean(kappa)
-            sigma = torch.std(kappa)
-            norm_kappa = (kappa - mu) / sigma * inclusion_scale
-
-            bias = (1 + np.pi * inclusion_scale ** 2 / 8) ** 0.5 * np.log(inclusion_p / (1 - inclusion_p))
-            p = torch.sigmoid(norm_kappa + bias)
-            mask = torch.bernoulli(p).bool()
-        else:
-            raise ValueError('Unknown exclusion mode', self.exclusion_mode)
-        return mask
 
     def linear_accuracy(self, dataloader):
         """

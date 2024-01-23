@@ -241,11 +241,11 @@ class SSL_Trainer(object):
 
             # Run evaluation
             if epoch == num_epochs - 1:
-                V = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model, epoch=epoch,
-                             last_epoch=True, low_shot=False, plot_tsne=True)
+                V = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model,
+                             epoch=epoch, last_epoch=True, low_shot=False, plot_tsne=True)
 
-                V_low_shot = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model, epoch=epoch,
-                                      last_epoch=False, plot_tsne=True, low_shot=True)
+                V_low_shot = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution,
+                                      model=self.model, epoch=epoch, last_epoch=False, plot_tsne=True, low_shot=True)
 
                 cor_corrupted, p_corrupted = V.get_metrics()
                 recall_cifar100, auroc_cifar100 = V_low_shot.recall_auroc()

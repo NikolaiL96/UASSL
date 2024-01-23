@@ -183,9 +183,10 @@ class Validate:
             else:
                 uncertainty = feats.scale
 
-            test_labels += (labels,)
-            test_uncertainty += (uncertainty,)
-            test_loc += (loc,)
+            if self.plot_tsne:
+                test_labels += (labels,)
+                test_uncertainty += (uncertainty,)
+                test_loc += (loc,)
 
         if self.last_epoch:
             p_corrupted, cor_corrupted = self.corrupted_img()
@@ -194,7 +195,7 @@ class Validate:
 
         if self.plot_tsne:
             dataset = str(self.data_test.test_dl.dataset).split("\n")[0].split(" ")[1]
-            self.vis_t_SNE(test_loc, test_labels, test_uncertainty, dataset)
+            self.vis_t_SNE(torch.cat(test_loc), torch.cat(test_labels), torch.cat(test_uncertainty), dataset)
 
         return cor_corrupted, p_corrupted
 
