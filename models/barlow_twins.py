@@ -56,7 +56,7 @@ class BarlowTwins(nn.Module):
         # Regularizer for the generated distribution
         self.regularizer = Probabilistic_Regularizer(distribution_type, lambda_reg)
 
-    def forward(self, x1, x2):
+    def forward(self, x1, x2, epoch):
         # Get Distribution
         dist1 = self.backbone_net(x1)
         dist2 = self.backbone_net(x2)

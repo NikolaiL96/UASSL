@@ -76,19 +76,19 @@ class SimCLR(nn.Module):
     def forward(self, x1, x2):
         dist1, dist2 = self.backbone_net(x1), self.backbone_net(x2)
 
-        ssl_loss = self.compute_ssl_loss(dist1, dist2)
+        ssl_loss = self.compute_ssl_loss(dist1, dist2, epoch)
         var_reg = self.regularizer((dist1, dist2))
         unc_loss = self.compute_uncertainty_loss(dist1, dist2)
 
         return ssl_loss, var_reg, unc_loss, (dist1, dist2)
 
-    def compute_ssl_loss(self, dist1, dist2):
+    def compute_ssl_loss(self, dist1, dist2, epoch):
         n_batch = dist1.loc.shape[0]
         if self.loss == "NT-Xent":
-            # if epoch < 10:
-            #     z1, z2 = dist1.loc, dist2.loc
-            # else:
-            z1, z2 = dist1.rsample(), dist2.rsample()
+            if epoch < 10:
+                z1, z2 = dist1.loc, dist2.loc
+            else:
+                z1, z2 = dist1.rsample(), dist2.rsample()
 
             p1 = self.projector(z1)
             p2 = self.projector(z2)

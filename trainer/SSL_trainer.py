@@ -77,7 +77,7 @@ class SSL_Trainer(object):
 
             # Forward pass
             with autocast(enabled=self.use_amp):
-                loss = self.model(x1, x2)
+                loss = self.model(x1, x2, epoch_id)
 
             if epoch_id == 0:
                 forward_time += time.time() - current_timestep
