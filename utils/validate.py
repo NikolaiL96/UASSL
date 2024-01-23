@@ -84,14 +84,14 @@ class Validate:
             cifar10h = get_cifar10h()
             unc = 1 - entropy(cifar10h, axis=1)
 
-            corr = np.corrcoef(kappa, unc)
-            rank_corr = spearmanr(kappa, unc)
+            corr = np.corrcoef(kappa, unc.cpu().numpy())
+            rank_corr = spearmanr(kappa, unc.cpu().numpy())[0]
 
-            return torch.as_tensor(corr[0, 1], device=self.device), torch.as_tensor(rank_corr[0], self.device)
+            return corr[0, 1], rank_corr
 
         except Exception as e:
             print(e)
-            return torch.zeros(1), torch.zeros(1)
+            return 0., 0.
 
     def get_linear_probing(self, epochs=10, lr=1e-2, oob_data=False):
         if not oob_data:
@@ -230,6 +230,8 @@ class Validate:
 
         p_cropped = (Unc < Unc_c).float().mean()
         cor_cropped = spearmanr(-Unc_c.cpu().numpy(), crop.cpu().numpy())[0]
+        print(Unc_c.cpu().numpy(), crop.cpu().numpy())
+        print(Unc_c.cpu().numpy().shape, crop.cpu().numpy().shape)
         return p_cropped, cor_cropped
 
     @torch.no_grad()
