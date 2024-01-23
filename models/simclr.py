@@ -134,6 +134,7 @@ class BT_Loss(nn.Module):
         return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
 
     def forward(self, z1, z2):
+        print("in BT_Loss in SimCLR")
 
         c = self.bn(z1).T @ self.bn(z2)
         c.div_(z1.size(0))
