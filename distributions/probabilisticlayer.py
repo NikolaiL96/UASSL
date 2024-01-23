@@ -53,16 +53,12 @@ class Probabilistic_Layer(nn.Module):
             kappa = const * nn.functional.softplus(feats[:, -1]) + self.eps
             return powerspherical.PowerSpherical(mu, kappa)
 
-        if self.distribution == "vonMisesFisherNorm":
-            mu = self.layer(x)
-            norm_mu = torch.linalg.norm(mu, dim=1, keepdim=True)
-            return vonmisesfisher.VonMisesFisher(mu / norm_mu, torch.pow(norm_mu, 2))
+        if self.distribution == "vonMisesFisher":
+            feats = self.layer(x)
+            mu = nn.functional.normalize(feats[:, :self.dim], dim=1)
 
-        if self.distribution == "vonMisesFisherNode":
-            mu = self.layer(x)
-            norm_mu = torch.linalg.norm(mu[:, :-1], dim=1, keepdim=True)
-            kappa = nn.functional.softplus(mu[:, -1]) + self.eps
-
-            return vonmisesfisher.VonMisesFisher(mu[:, :-1] / norm_mu, torch.pow(kappa, 2))
+            const = torch.pow(torch.tensor(self.dim).to(mu.device), 1 / 2.)
+            kappa = const * nn.functional.softplus(feats[:, -1]) + self.eps
+            return vonmisesfisher.VonMisesFisher(mu, kappa)
 
         raise ValueError('Forward pass with unknown distribution.')

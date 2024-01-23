@@ -54,6 +54,10 @@ class ProbabilisticLayer(nn.Module):
             mean = nn.functional.normalize(mean, dim=1)
             return powerspherical.PowerSpherical(mean, kappa)
 
+        if self.distribution == "vonMisesFisher":
+            mean = nn.functional.normalize(mean, dim=1)
+            return vonmisesfisher.VonMisesFisher(mean, kappa)
+
         if self.distribution == "normal":
             if kappa.dim() == 1:
                 kappa = kappa.unsqueeze(1).repeat(1, self.in_features)

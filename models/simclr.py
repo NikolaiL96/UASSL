@@ -50,8 +50,6 @@ class SimCLR(nn.Module):
         # Verbose
         print(f"We initialize SimCLR with {self.rep_dim} dimensions and a {distribution_type} distribution.")
 
-        self.bt_loss = BT_Loss(projector_hidden, self.rep_dim, 0.005)
-
     def initialize_projector(self, projector_hidden):
         if projector_hidden:
             if self.loss == "KL_Loss" and self.distribution_type == "normal":
@@ -89,8 +87,7 @@ class SimCLR(nn.Module):
         if self.loss == "NT-Xent":
             p1 = self.projector(dist1.rsample())
             p2 = self.projector(dist2.rsample())
-            return self.bt_loss(p1, p2)
-            #return self.loss_fn(p1, p2)
+            return self.loss_fn(p1, p2)
 
         if "MCNT-Xent" in self.loss:
             z1 = dist1.rsample((self.n_mc,)).view(n_batch * self.n_mc, -1)
@@ -119,28 +116,3 @@ class SimCLR(nn.Module):
             unc_loss = torch.tensor([0.0], device=dist1.loc.device)
 
         return unc_loss
-
-
-class BT_Loss(nn.Module):
-
-    def __init__(self, projector_hidden, rep_dim, lambda_bt):
-        super().__init__()
-
-        self.bn = nn.BatchNorm1d(projector_hidden[-1] if projector_hidden else rep_dim, affine=False)
-        self.lambda_bt = lambda_bt
-
-    def _off_diagonal(self, x):
-        # return a flattened view of the off-diagonal elements of a square matrix
-        n, m = x.shape
-        assert n == m
-        return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
-
-    def forward(self, z1, z2):
-        print("in BT_Loss in SimCLR")
-
-        c = self.bn(z1).T @ self.bn(z2)
-        c.div_(z1.size(0))
-
-        c_diff = (c - torch.eye(c.size(1)).to(z1.device)).pow(2)
-        c_diff[~torch.eye(*c_diff.shape, dtype=torch.bool).to(z1.device)] *= self.lambda_bt
-        return c_diff.sum()

@@ -5,8 +5,7 @@ from torch.optim import SGD
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from sacred import Experiment
-from sacred.observers import MongoObserver, FileStorageObserver
-from datetime import datetime
+from sacred.observers import FileStorageObserver
 
 ex = Experiment("VariationalSSL", interactive=True)
 

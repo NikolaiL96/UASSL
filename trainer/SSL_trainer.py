@@ -104,14 +104,14 @@ class SSL_Trainer(object):
 
             # Backward pass
             self.optimizer.zero_grad()
+            # GradScaling to avoid underflow when using autocast
             self.scaler.scale(loss).backward()
+            self.scaler.unscale_(self.optimizer)
+
+            # Prevent exploding kappa by clipping gradients
+            torch.nn.utils.clip_grad_norm_(self.model.backbone_net.fc.parameters(), 10.)
             self.scaler.step(self.optimizer)
             self.scaler.update()
-
-            # Save kappa
-            kappa = torch.mean(torch.cat([dist1.scale.detach(), dist2.scale.detach()], dim=0), dim=-1)
-            self._epoch_kappa_min = torch.min(kappa)
-            self._epoch_kappa_max = torch.max(kappa)
 
             # save learning rate
             self._hist_lr.append(self.scheduler.get_last_lr())
@@ -131,8 +131,8 @@ class SSL_Trainer(object):
             print(f"Loading time {loading_time:.1f}s, Forward Time {forward_time:.1f}s, Backward Time {backward_time:.1f}s")
 
 
-    def train(self, num_epochs, optimizer, scheduler, optim_params, scheduler_params, eval_params,
-              warmup_epochs=10, iter_scheduler=True, evaluate_at=[100, 200, 400], verbose=True):
+    def train(self, num_epochs, optimizer, scheduler, optim_params, scheduler_params, warmup_epochs=10,
+              iter_scheduler=True, evaluate_at=[100, 200, 400], verbose=True):
 
         # Check and Load existing model
         epoch_start, optim_state, sched_state = self.load_model(self.save_root, return_vals=True)
@@ -165,8 +165,6 @@ class SSL_Trainer(object):
             self._epoch_ssl_loss = torch.zeros(1, device=self.device)
             self._epoch_unc_loss = torch.zeros(1, device=self.device)
             self._epoch_kl_loss = torch.zeros(1, device=self.device)
-            self._epoch_kappa_min = torch.zeros(1, device=self.device)
-            self._epoch_kappa_max = torch.zeros(1, device=self.device)
             self._dist_std_stats = {'min': 1e8, 'max': 1e8, 'mean': torch.zeros(1, device=self.device),
                                     'diversity': torch.zeros(1, device=self.device)}
 
@@ -207,8 +205,8 @@ class SSL_Trainer(object):
 
                 self.tb_logger.add_scalar('epoch_time', time.time() - start_time, epoch)
 
-                self.tb_logger.add_scalar('kappa/kappa_min', self._epoch_kappa_min.item(), epoch)
-                self.tb_logger.add_scalar('kappa/kappa_max', self._epoch_kappa_max.item(), epoch)
+                self.tb_logger.add_scalar('kappa/kappa_min', self.dist_std_hist_stats["min"][-1], epoch)
+                self.tb_logger.add_scalar('kappa/kappa_max', self.dist_std_hist_stats["max"][-1], epoch)
 
                 # with torch.no_grad():
                 V = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model,

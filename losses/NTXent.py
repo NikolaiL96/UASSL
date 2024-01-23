@@ -23,7 +23,6 @@ class NTXent(nn.Module):
             p1, p2 = F.normalize(p1, dim=-1), F.normalize(p2, dim=-1)
 
         z = torch.cat([p1, p2], dim=0)
-        #sim_mat = z.matmul(z.transpose(-2, -1)) / self.temperature
         sim_mat = torch.matmul(z, z.transpose(-2, -1)) / self.temperature
 
         mask_pos, mask_self = self.mask(n_batch, device=p1.device)

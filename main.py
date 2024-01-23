@@ -45,7 +45,7 @@ if __name__ == "__main__":
     parser.add_argument("--lambda_reg", "-lam", default=0.001, type=float)
     parser.add_argument("--temperature", "-t", default=0.01, type=float)
     parser.add_argument("--batch_size", "-bs", default=64, type=int)
-    parser.add_argument("--network", "-n", default="uncertainty_net", type=str)
+    parser.add_argument("--network", "-n", default="resnet18", type=str)
     parser.add_argument("--projector", "-pr", default=True, type=str2bool)
     parser.add_argument("--n_mc", default=16, type=int)
     parser.add_argument("--fine_tuned", default=False, type=str2bool)
