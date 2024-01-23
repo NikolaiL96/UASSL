@@ -142,7 +142,7 @@ class SSL_Trainer(object):
         self._total_iters = num_epochs * self._train_len
 
         # Define Optimizer
-        params = self.model.parameters()
+        #params = self.model.parameters()
 
         # Define set of trainable parameters
         if self.fine_tune:
@@ -208,7 +208,20 @@ class SSL_Trainer(object):
             self.dist_std_hist_stats['mean'].append(self._dist_std_stats['mean'].item() / self._train_len)
             self.dist_std_hist_stats['diversity'].append(self._dist_std_stats['diversity'] / self._train_len)
 
+            start = torch.cuda.Event(enable_timing=True)
+            end = torch.cuda.Event(enable_timing=True)
+            print(f'GPU Reserved linear protocol before {torch.cuda.memory_reserved(0) // 1000000}MB,'
+                  f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')
+            start.record()
             recall2, auroc2, knn2 = self.evaluate()
+            end.record()
+
+            # Waits for everything to finish running
+            torch.cuda.synchronize()
+            print(f"Linear Protocol: {start.elapsed_time(end)}")
+            print(f'GPU Reserved linear protocol after {torch.cuda.memory_reserved(0) // 1000000}MB,'
+                  f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')
+
 
             if self.tb_logger:
                 self.tb_logger.add_scalar('loss/loss', self.loss_hist[-1], epoch)
@@ -222,15 +235,24 @@ class SSL_Trainer(object):
                 self.tb_logger.add_scalar('kappa/kappa_max', self.dist_std_hist_stats["max"][-1], epoch)
 
                 # with torch.no_grad():
+                start = torch.cuda.Event(enable_timing=True)
+                end = torch.cuda.Event(enable_timing=True)
+                print(f'GPU Reserved Validate before {torch.cuda.memory_reserved(0) // 1000000}MB,'
+                      f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')
+                start.record()
                 V = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model,
                              epoch=epoch, last_epoch=False, low_shot=False)
-
-                auroc3, recall3, = V.recall_auroc(self.ssl_data.test_dl)
                 auroc, recall, knn, _, _ = V._get_metrics()
+                end.record()
+                torch.cuda.synchronize()
+                print(f"Validate: {start.elapsed_time(end)}")
+                print(f'GPU Reserved after validate{torch.cuda.memory_reserved(0) // 1000000}MB,'
+                      f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB', end='\n')
+
+
                 # self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
                 # self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
                 print(f"Auroc2: {auroc2:0.3f}, Recall2: {recall2:0.3f}, knn2: {knn2:0.1f}")
-                print(f"Auroc3: {auroc3:0.3f}, Recall3: {recall3:0.3f}")
 
                 self.tb_logger.add_scalar('kappa/AUROC', auroc, epoch)
                 self.tb_logger.add_scalar('kappa/R@1', recall, epoch)

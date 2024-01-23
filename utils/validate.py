@@ -157,35 +157,35 @@ class Validate:
         test_labels, test_uncertainty, test_loc = (), (), ()
         train_features, train_labels = self.extract_train(self.data.train_eval_dl)
 
-        Recall, Auroc = [], []
+        Recall, Auroc = torch.zeros(1, device=self.device), torch.zeros(1, device=self.device)
         total_top1, total_num = 0.0, 0
 
         num_classes = len(set(train_labels.cpu().numpy().tolist()))
 
-        for x, labels in self.data_test.test_dl:
+        for n, (x, labels) in enumerate(self.data_test.test_dl):
             x, labels = x.to(self.device), labels.to(self.device)
 
             with autocast(enabled=self.use_amp):
                 feats = self.encoder(x)
 
-            loc_test = feats.loc
+            loc = feats.loc
             if self.distribution not in ["sphere", "normal"]:
                 uncertainty = 1 / feats.scale
             else:
                 uncertainty = feats.scale
 
             if not self.low_shot:
-                pred_labels = knn_predict(loc_test, train_features, train_labels, num_classes, knn_k, knn_t)
+                pred_labels = knn_predict(loc, train_features, train_labels, num_classes, knn_k, knn_t)
                 total_num += x.size(0)
                 total_top1 += (pred_labels[:, 0] == labels).float().sum().item()
 
             test_labels += (labels,)
             test_uncertainty += (uncertainty,)
-            test_loc += (loc_test,)
+            test_loc += (loc,)
 
-            recall, auroc = self._get_roc(torch.cat(test_loc), torch.cat(test_labels), torch.cat(test_uncertainty))
-            Recall.append(recall)
-            Auroc.append(auroc)
+            recall, auroc = self._get_roc(loc, labels, uncertainty)
+            Recall += recall
+            Auroc += auroc
 
         if self.last_epoch:
             p_corrupted, cor_corrupted = self.corrupted_img()
@@ -198,7 +198,7 @@ class Validate:
             dataset = str(self.data_test.test_dl.dataset).split("\n")[0].split(" ")[1]
             self.vis_t_SNE(test_loc, test_labels, test_uncertainty, dataset)
 
-        return torch.as_tensor(Auroc).mean(), torch.as_tensor(Recall).mean(), knn, cor_corrupted, p_corrupted
+        return Auroc/n, Recall/n, knn, cor_corrupted, p_corrupted
 
     @torch.no_grad()
     def corrupted_img(self):
