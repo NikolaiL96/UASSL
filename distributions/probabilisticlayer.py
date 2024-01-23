@@ -57,7 +57,8 @@ class Probabilistic_Layer(nn.Module):
             feats = self.layer(x)
             mu = nn.functional.normalize(feats[:, :self.dim], dim=1)
 
-            kappa = torch.exp(feats[:, -1]) + self.eps
+            const = torch.pow(torch.tensor(self.dim).to(mu.device), 1 / 2.)
+            kappa = const * torch.exp(feats[:, -1]) + self.eps
             return powerspherical.PowerSpherical(mu, kappa)
 
         if self.distribution == "vonMisesFisher":
