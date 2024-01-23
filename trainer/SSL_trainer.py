@@ -226,8 +226,7 @@ class SSL_Trainer(object):
                 self.tb_logger.add_scalar('kappa/R@1', recall, epoch)
                 self.tb_logger.add_scalar('kappa/knn', knn, epoch)
 
-                print(f"Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc.item():0.3f}, Recall: {recall.item():0.3f}, "
-                      f"knn: {knn.item():0.1f}")
+                print(f"Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc:0.3f}, Recall: {recall:0.3f}, knn: {knn:0.1f}")
 
             if verbose:
                 print(
