@@ -61,10 +61,15 @@ class BarlowTwins(nn.Module):
         dist1 = self.backbone_net(x1)
         dist2 = self.backbone_net(x2)
 
-        # Get Sample Projections
-        p1 = self.projector(dist1.rsample())
-        p2 = self.projector(dist2.rsample())
+        # Use distribution's location for the first 5 epoch
+        if epoch < 5:
+            z1, z2 = dist1.loc, dist2.loc
+        else:
+            z1, z2 = dist1.rsample(), dist2.rsample()
 
+        # Get Sample Projections
+        p1 = self.projector(z1)
+        p2 = self.projector(z2)
         # Get standard barlow twin loss
         ssl_loss = self.loss_fn(p1, p2)
         var_reg = self.regularizer((dist1, dist2))
