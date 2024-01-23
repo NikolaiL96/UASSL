@@ -160,9 +160,6 @@ class Validate:
             Recall.append(recall)
             Auroc.append(auroc)
 
-
-        print(Recall, Auroc)
-
         if self.last_epoch:
             p_corrupted, cor_corrupted = self.corrupted_img()
         else:
