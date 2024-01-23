@@ -155,7 +155,7 @@ class Validate:
 
     @torch.no_grad()
     def knn_accuracy(self, knn_k: int = 200, knn_t: float = 0.1):
-        train_features, train_labels = self._extract_train(train_dl=self.data.train_dl)
+        train_features, train_labels = self._extract_train(train_dl=self.data.train_eval_dl)
 
         accuracy = self._knn_predict_with_given_features_and_labels(
             train_features=train_features,
