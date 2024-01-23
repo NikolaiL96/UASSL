@@ -102,6 +102,8 @@ class SSL_Trainer(object):
                 # We just exclude this batch because of nan loss, but not to many times
                 if nan_loss_counter < 10:
                     continue
+                else:
+                    raise ValueError("More then ten Nan detected in SSL or KL-loss!")
 
             # Backward pass
             self.optimizer.zero_grad()
@@ -241,20 +243,15 @@ class SSL_Trainer(object):
 
             # Run evaluation
             if epoch == num_epochs - 1:
-                V = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model,
-                             epoch=epoch, last_epoch=True, low_shot=False, plot_tsne=True)
+                validate = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution,
+                                    model=self.model, epoch=epoch, last_epoch=True, low_shot=False, plot_tsne=True)
 
-                V_low_shot = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution,
-                                      model=self.model, epoch=epoch, last_epoch=False, plot_tsne=True, low_shot=True)
+                validate_low_shot = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution,
+                                             model=self.model, epoch=epoch, last_epoch=False, plot_tsne=True,
+                                             low_shot=True)
 
-                cor_corrupted, p_corrupted = V.get_metrics()
-                recall_cifar100, auroc_cifar100 = V_low_shot.recall_auroc()
-
-                linear_acc_100 = V_low_shot.get_linear_probing()
-                linear_acc_10 = V.get_linear_probing()
-                knn_cifar100 = V_low_shot.knn_accuracy()
-
-                cor_pearson, cor_spearman = V.get_cor()
+                cor_corrupted, p_corrupted = validate.get_metrics()
+                cor_pearson, cor_spearman = validate.get_cor()
 
                 self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
                 self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
@@ -262,14 +259,27 @@ class SSL_Trainer(object):
                 self.tb_logger.add_scalar('kappa/cor_pearson', cor_pearson, epoch)
                 self.tb_logger.add_scalar('kappa/cor_spearman', cor_spearman, epoch)
 
+                linear_acc_10 = validate.get_linear_probing()
+                self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR10', linear_acc_10, epoch)
+
+                recall_cifar100, auroc_cifar100 = validate_low_shot.recall_auroc()
+                linear_acc_100 = validate_low_shot.get_linear_probing()
+                knn_cifar100 = validate_low_shot.knn_accuracy()
+
                 self.tb_logger.add_scalar('ZeroShot/AUROC_CIFAR100', auroc_cifar100, epoch)
                 self.tb_logger.add_scalar('ZeroShot/R@1_CIFAR100', recall_cifar100, epoch)
                 self.tb_logger.add_scalar('ZeroShot/knn_CIFAR100', knn_cifar100, epoch)
                 self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR100', linear_acc_100, epoch)
-                self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR10', linear_acc_10, epoch)
+
+                print(cor_corrupted, p_corrupted, cor_pearson, cor_spearman, linear_acc_10, auroc_cifar100, recall_cifar100,
+                      knn_cifar100, linear_acc_100)
 
             if (epoch) in evaluate_at:
                 self.save_model(self.save_root, epoch + 1)
+
+        # Save final model
+        self.save_model(self.save_root, num_epochs)
+        print("Training completed.")
 
     def save_model(self, save_root, epoch):
         save_data = {'model': self.model.state_dict(),
