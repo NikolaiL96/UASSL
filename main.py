@@ -30,6 +30,12 @@ def get_data_root_and_path(cluster, run_final):
         path = "./saved_runs/"
     return data_root, path
 
+def get_optimizer(optimizer):
+    if optimizer == "SGD":
+        optim_params = {"lr": args.lr, "weight_decay": 5e-4}
+
+    return optim_params
+
 if __name__ == "__main__":
     sys.path.append("")
 

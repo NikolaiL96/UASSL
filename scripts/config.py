@@ -14,7 +14,6 @@ ex = Experiment("VariationalSSL", interactive=True)
 def BarlowTwins():
     method = "BarlowTwins"
     augmentation_type = "BYOL"
-    optim_params = {"lr": 6e-2, "momentum": 0.9, "weight_decay": 5e-4}
     method_params = MODEL_CONFIG[method][DEFAULT_OPTIONS]
     method_cls = MODEL_CONFIG[method][METHOD_CLS]
 
@@ -22,7 +21,6 @@ def BarlowTwins():
 def SimCLR():
     method = "SimCLR"
     augmentation_type = "BYOL"
-    optim_params = {"lr": 6e-2, "weight_decay": 5e-4}
     method_params = MODEL_CONFIG[method][DEFAULT_OPTIONS]
     method_cls = MODEL_CONFIG[method][METHOD_CLS]
 
@@ -56,7 +54,7 @@ def my_config():
 
     train_params = {
         "num_epochs": int(epochs),
-        "optimizer": Lamb,
+        "optimizer": SGD,
         "scheduler": CosineAnnealingLR,
         "warmup_epochs": int(warmup),
         "iter_scheduler": True,
