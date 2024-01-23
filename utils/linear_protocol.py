@@ -37,14 +37,14 @@ class Linear_Protocoler(object):
                 feats = self.encoder(x)
 
             labels = labels
-            dist = 1 / feats.scale
+            unc = 1 / feats.scale
             feats = feats.loc
 
             feats = F.normalize(feats, dim=-1)
             closest_idxes = feats.matmul(feats.transpose(-2, -1)).topk(2)[1][:, 1]
             closest_classes = labels[closest_idxes]
             is_same_class = (closest_classes == labels).float()
-            auroc = auc(-dist.squeeze(), is_same_class.int()).item()
+            auroc = auc(-unc.squeeze(), is_same_class.int()).item()
 
             Recall.append(is_same_class.mean())
             Auroc.append(auroc)

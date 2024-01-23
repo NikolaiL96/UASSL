@@ -47,7 +47,7 @@ class SSL_Trainer(object):
         # Define data
         self.data = ssl_data
 
-    def evaluate(self, num_epochs, lr, milestones=None, linear_eval=False):
+    def evaluate(self):
         # Linear protocol
         evaluator = Linear_Protocoler(self.model.backbone_net, repre_dim=self.model.rep_dim,
                                       variational=True, device=self.device)
@@ -82,6 +82,7 @@ class SSL_Trainer(object):
             if epoch_id == 0:
                 forward_time += time.time() - current_timestep
                 current_timestep = time.time()
+
             # Extract
             ssl_loss, kl_loss, unc_loss, (dist1, dist2) = loss
             loss = ssl_loss + kl_loss + unc_loss
@@ -130,7 +131,7 @@ class SSL_Trainer(object):
             print("For the first Epoch, we have the following Profiling results:")
             print(f"Loading time {loading_time:.1f}s, Forward Time {forward_time:.1f}s, Backward Time {backward_time:.1f}s")
 
-    def train(self, num_epochs, optimizer, scheduler, optim_params, scheduler_params, eval_params, warmup_epochs=10,
+    def train(self, num_epochs, optimizer, scheduler, optim_params, scheduler_params, warmup_epochs=10,
               iter_scheduler=True, evaluate_at=[100, 200, 400], verbose=True):
 
         # Check and Load existing model
@@ -207,7 +208,7 @@ class SSL_Trainer(object):
             self.dist_std_hist_stats['mean'].append(self._dist_std_stats['mean'].item() / self._train_len)
             self.dist_std_hist_stats['diversity'].append(self._dist_std_stats['diversity'] / self._train_len)
 
-            recall2, auroc2, knn2 = self.evaluate(**eval_params)
+            recall2, auroc2, knn2 = self.evaluate()
 
             if self.tb_logger:
                 self.tb_logger.add_scalar('loss/loss', self.loss_hist[-1], epoch)
@@ -224,10 +225,12 @@ class SSL_Trainer(object):
                 V = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution, model=self.model,
                              epoch=epoch, last_epoch=False, low_shot=False)
 
+                auroc3, recall3, = V.recall_auroc(self.ssl_data.test_dl)
                 auroc, recall, knn, _, _ = V._get_metrics()
                 # self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
                 # self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
                 print(f"Auroc2: {auroc2:0.3f}, Recall2: {recall2:0.3f}, knn2: {knn2:0.1f}")
+                print(f"Auroc3: {auroc3:0.3f}, Recall3: {recall3:0.3f}")
 
                 self.tb_logger.add_scalar('kappa/AUROC', auroc, epoch)
                 self.tb_logger.add_scalar('kappa/R@1', recall, epoch)

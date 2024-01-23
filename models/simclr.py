@@ -85,10 +85,10 @@ class SimCLR(nn.Module):
     def compute_ssl_loss(self, dist1, dist2, epoch):
         n_batch = dist1.loc.shape[0]
         if self.loss == "NT-Xent":
-            if epoch < 10:
-                z1, z2 = dist1.loc, dist2.loc
-            else:
-                z1, z2 = dist1.rsample(), dist2.rsample()
+            # if epoch < 10:
+            #     z1, z2 = dist1.loc, dist2.loc
+            # else:
+            z1, z2 = dist1.rsample(), dist2.rsample()
 
             p1 = self.projector(z1)
             p2 = self.projector(z2)

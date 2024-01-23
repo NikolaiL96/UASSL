@@ -72,4 +72,4 @@ def main(
     scheduler_params = {"T_max": (train_params["num_epochs"] - train_params["warmup_epochs"]) * len(ssl_data.train_dl)}
 
     # Train
-    cifar10_trainer.train(**train_params, optim_params=optim_params, scheduler_params=scheduler_params, eval_params=eval_params,)
+    cifar10_trainer.train(**train_params, optim_params=optim_params, scheduler_params=scheduler_params)

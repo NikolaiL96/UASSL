@@ -125,6 +125,33 @@ class Validate:
         return train_features, train_labels
 
     @torch.no_grad()
+    def recall_auroc(self, test_dl):
+        Recall = []
+        Auroc = []
+        for x, labels in test_dl:
+            x, labels = x.to(self.device), labels.to(self.device)
+
+            with autocast(enabled=self.use_amp):
+                feats = self.encoder(x)
+
+            labels = labels
+            unc = 1 / feats.scale
+            feats = feats.loc
+
+            feats = F.normalize(feats, dim=-1)
+            closest_idxes = feats.matmul(feats.transpose(-2, -1)).topk(2)[1][:, 1]
+            closest_classes = labels[closest_idxes]
+            is_same_class = (closest_classes == labels).float()
+            auroc = auc(-unc.squeeze(), is_same_class.int()).item()
+
+            Recall.append(is_same_class.mean())
+            Auroc.append(auroc)
+
+        Recall = torch.stack(Recall, 0)
+        Auroc = torch.Tensor(Auroc)
+        return Recall.mean(), Auroc.mean()
+
+    @torch.no_grad()
     def _get_metrics(self, knn_k: int = 200, knn_t: float = 0.1):
 
         test_labels, test_uncertainty, test_loc = (), (), ()
