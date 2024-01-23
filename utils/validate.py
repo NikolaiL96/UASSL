@@ -58,8 +58,8 @@ class Validate:
         closest_idx = feats.matmul(feats.transpose(-2, -1)).topk(2)[1][:, 1]
         closest_classes = labels[closest_idx]
 
-        is_same_class = torch.as_tensor(closest_classes == labels, dtype=torch.int, device=self.device)
-        auroc = auc(-unc.squeeze(), is_same_class)
+        is_same_class = torch.as_tensor(closest_classes == labels, dtype=torch.float, device=self.device)
+        auroc = auc(-unc.squeeze(), is_same_class.int())
 
         return is_same_class.mean(), auroc
 
