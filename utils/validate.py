@@ -113,12 +113,10 @@ class Validate:
             with autocast(enabled=self.use_amp):
                 feats = self.encoder(x)
 
-            feats = feats.loc
-
-            train_features += (F.normalize(feats, dim=1),)
+            train_features += (F.normalize(feats.loc, dim=1),)
             train_labels += (labels,)
 
-        train_features = torch.cat(train_features)
+        train_features = torch.cat(train_features).t().contiguous()
         train_labels = torch.cat(train_labels)
 
         return train_features, train_labels
@@ -126,7 +124,7 @@ class Validate:
     @torch.no_grad()
     def _get_metrics(self, knn_k: int = 200, knn_t: float = 0.1):
 
-        test_features, test_labels, test_uncertainty, test_loc = (), (), (), ()
+        test_labels, test_uncertainty, test_loc = (), (), ()
         train_features, train_labels = self.extract_train(self.data.train_eval_dl)
         total_top1, total_num = 0.0, 0
 
@@ -136,19 +134,19 @@ class Validate:
             x_test, labels_test = x_test.to(self.device), labels_test.to(self.device)
 
             with autocast(enabled=self.use_amp):
-                feats_test = self.encoder(x_test)
+                feats = self.encoder(x_test)
 
-            loc_test = feats_test.loc
-            uncertainty = 1 / feats_test.scale if self.distribution not in ["sphere", "normal"] else feats_test.scale
+            loc_test = feats.loc
+            uncertainty = 1 / feats.scale if self.distribution not in ["sphere", "normal"] else feats.scale
 
             if not self.low_shot:
-                pred_labels = knn_predict(loc_test, train_features.t().contiguous(), train_labels, num_classes, knn_k, knn_t)
+                pred_labels = knn_predict(loc_test, train_features, train_labels, num_classes, knn_k, knn_t)
                 total_num += x_test.size(0)
                 total_top1 += (pred_labels[:, 0] == labels_test).float().sum().item()
 
             test_labels += (labels_test,)
             test_uncertainty += (uncertainty,)
-            test_loc += (feats_test.loc,)
+            test_loc += (loc_test,)
 
         recall, auroc = self._get_roc(torch.cat(test_loc), torch.cat(test_labels), torch.cat(test_uncertainty))
 
@@ -158,7 +156,7 @@ class Validate:
 
         if self.plot_tsne:
             dataset = str(self.data_test.test_dl.dataset).split("\n")[0].split(" ")[1]
-            self.vis_t_SNE(test_features, test_labels, uncertainty, dataset)
+            self.vis_t_SNE(test_loc, test_labels, uncertainty, dataset)
 
         return torch.as_tensor(auroc), torch.as_tensor(recall), knn, cor_corrupted, p_corrupted
 
