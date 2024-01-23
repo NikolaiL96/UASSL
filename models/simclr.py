@@ -73,7 +73,7 @@ class SimCLR(nn.Module):
 
         print(f"We use the {loss}. Temperature set to {temperature}")
 
-    def forward(self, x1, x2):
+    def forward(self, x1, x2, epoch):
         dist1, dist2 = self.backbone_net(x1), self.backbone_net(x2)
 
         ssl_loss = self.compute_ssl_loss(dist1, dist2, epoch)
