@@ -80,7 +80,7 @@ if __name__ == "__main__":
                   "network": args.network,
                   "method": args.method,
                   "dataset": args.dataset,
-                  "optim_params": {"lr": args.lr, "momentum": 0.9, "weight_decay": 5e-4},
+                  "optim_params": {"lr": args.lr, "weight_decay": 5e-4},
                   "epochs": args.epochs,
                   "warmup": args.warmup,
                   "batch_size": args.batch_size,

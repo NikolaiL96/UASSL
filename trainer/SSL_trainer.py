@@ -144,6 +144,20 @@ class SSL_Trainer(object):
         # Define Optimizer
         params = self.model.parameters()
 
+        # Define set of trainable parameters
+        if self.fine_tune:
+            # When finetune the probabilistic layer
+            params = self.model.backbone_net.fc.parameters()
+        elif self.model.backbone_net.name == "UncertaintyNet":
+            params = [{'params': [k[1] for k in self.model.named_parameters() if 'kappa' in k[0]], 'lr': 6e-3},
+                      {'params': [k[1] for k in self.model.named_parameters() if 'kappa' not in k[0]]}]
+        elif "resnet" in self.model.backbone_net.name:
+            params = [{'params': [k[1] for k in self.model.named_parameters() if 'kappa' in k[0]], 'lr': 6e-3},
+                      {'params': [k[1] for k in self.model.named_parameters() if 'kappa' not in k[0]]}]
+        else:
+
+            params = self.model.parameters()
+
         self.optimizer = optimizer(params, **optim_params)
 
         # Define Scheduler

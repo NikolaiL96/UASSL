@@ -1,6 +1,7 @@
 import os
 from utils.model_factory import MODEL_CONFIG, METHOD_CLS, DEFAULT_OPTIONS
 
+from .lamp import Lamb
 from torch.optim import SGD
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
@@ -21,7 +22,7 @@ def BarlowTwins():
 def SimCLR():
     method = "SimCLR"
     augmentation_type = "BYOL"
-    optim_params = {"lr": 6e-2, "momentum": 0.9, "weight_decay": 5e-4}
+    optim_params = {"lr": 6e-2, "weight_decay": 5e-4}
     method_params = MODEL_CONFIG[method][DEFAULT_OPTIONS]
     method_cls = MODEL_CONFIG[method][METHOD_CLS]
 
@@ -55,7 +56,7 @@ def my_config():
 
     train_params = {
         "num_epochs": int(epochs),
-        "optimizer": SGD,
+        "optimizer": Lamb,
         "scheduler": CosineAnnealingLR,
         "warmup_epochs": int(warmup),
         "iter_scheduler": True,
