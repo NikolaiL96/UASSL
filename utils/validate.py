@@ -58,10 +58,10 @@ class Validate:
         closest_idx = feats.matmul(feats.transpose(-2, -1)).topk(2)[1][:, 1]
         closest_classes = labels[closest_idx]
 
-        is_same_class = torch.as_tensor(closest_classes == labels, dtype=torch.float, device=self.device)
+        is_same_class = closest_classes == labels
         auroc = auc(-unc.squeeze(), is_same_class.int())
 
-        return is_same_class.mean(), torch.as_tensor(auroc)
+        return torch.as_tensor(is_same_class, dtype=torch.float, device=self.device).mean(), torch.as_tensor(auroc)
 
     @torch.no_grad()
     def get_cor(self):
@@ -87,7 +87,7 @@ class Validate:
             corr = np.corrcoef(kappa, unc)
             rank_corr = spearmanr(kappa, unc)
 
-            return torch.as_tensor(corr[0, 1], device=self.device), torch.as_tensor(rank_corr.statistic, self.device)
+            return torch.as_tensor(corr[0, 1], device=self.device), torch.as_tensor(rank_corr[0], self.device)
 
         except Exception as e:
             print(e)

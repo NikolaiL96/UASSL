@@ -80,6 +80,9 @@ if __name__ == "__main__":
     if args.cluster:
         slug += f"--ID:{os.getenv('SLURM_JOB_ID')}"
 
+        if os.getenv('SLURM_JOB_NAME') != "gpu_job":
+            slug += f"--Job_Name: {os.getenv('SLURM_JOB_NAME')}"
+
     time = datetime.datetime.now().strftime("%B%d")
     slug += f"--{time}"
 
