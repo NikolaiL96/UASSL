@@ -112,7 +112,7 @@ class SSL_Trainer(object):
             self.scaler.unscale_(self.optimizer)
 
             # Prevent exploding kappa by clipping gradients
-            torch.nn.utils.clip_grad_norm_(self.model.backbone_net.parameters(), 1.)
+            torch.nn.utils.clip_grad_norm_(self.model.backbone_net.fc.parameters(), 2.)
             self.scaler.step(self.optimizer)
             self.scaler.update()
 
