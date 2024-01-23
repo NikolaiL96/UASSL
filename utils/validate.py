@@ -65,7 +65,7 @@ class Validate:
 
     @torch.no_grad()
     def get_cor(self):
-        test_kappa = ()
+        test_unc = ()
         dl_kwargs = {"batch_size": 512, "shuffle": False, "num_workers": min(os.cpu_count(), 0)}
         data_cifar10h, *_ = load_dataset("cifar10", "./data/", augmentation_type="BYOL", dl_kwargs=dl_kwargs)
 
@@ -75,18 +75,20 @@ class Validate:
             with autocast(enabled=self.use_amp):
                 feats_test = self.encoder(x_test)
 
-            kappa_test = feats_test.scale
-            test_kappa += (kappa_test,)
+            unc_test = feats_test.scale
+            test_unc += (unc_test,)
 
-        kappa = torch.cat(test_kappa).cpu().numpy()
+        unc = torch.cat(test_unc).cpu().numpy()
+        if self.distribution not in ["sphere", "normal"]:
+            unc = 1 / unc
 
         try:
             cifar10h = get_cifar10h()
-            unc = 1 - entropy(cifar10h, axis=1)
+            unc_h= entropy(cifar10h, axis=1)
 
-            corr = np.corrcoef(kappa, unc)
-            rank_corr = spearmanr(kappa, unc)[0]
-            print(kappa, unc)
+            corr = np.corrcoef(unc, unc_h)
+            rank_corr = spearmanr(unc, unc_h)[0]
+            print(unc, unc_h)
             print(corr, rank_corr)
 
             return corr[0, 1], rank_corr
@@ -209,8 +211,7 @@ class Validate:
         k = 0
         crop = torch.rand(len(self.data_test.test_dl.dataset), device=self.device) * (crop_max - crop_min) + crop_min
 
-        Unc = ()
-        Unc_c = ()
+        unc, unc_c = (), ()
 
         for n, (x, target) in enumerate(self.data_test.test_dl):
             x, target = x.to(self.device), target.to(self.device)
@@ -224,14 +225,16 @@ class Validate:
                 x_c[i] = TF.resize(TF.center_crop(x[i], [crop_size]), [x.shape[2], x.shape[3]], antialias=True)
 
             with autocast(enabled=self.use_amp):
-                Unc += (self.encoder(x).scale,)
-                Unc_c += (self.encoder(x_c).scale,)
+                unc += (self.encoder(x).scale,)
+                unc_c += (self.encoder(x_c).scale,)
 
-        Unc = 1 / torch.cat(Unc)
-        Unc_c = 1 / torch.cat(Unc_c)
+        unc, unc_c = torch.cat(unc), torch.cat(unc_c)
 
-        p_cropped = (Unc < Unc_c).float().mean()
-        cor_cropped = spearmanr(-Unc_c.cpu().numpy(), crop.cpu().numpy())[0]
+        if self.distribution not in ["sphere", "normal"]:
+            unc, unc_c = 1 / unc, 1 / unc_c
+
+        p_cropped = (unc < unc_c).float().mean()
+        cor_cropped = spearmanr(-unc_c.cpu().numpy(), crop.cpu().numpy())[0]
 
         return p_cropped, cor_cropped
 
