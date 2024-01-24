@@ -77,6 +77,8 @@ class SSL_Trainer(object):
 
         if self.clip_type == "Hook":
             grad_clip_hook_(self.model.backbone_net.fc, clip=self.clip)
+            if self.clip == 0.:
+                self.logger.warning(f"clip_type Hook but clip is 0.")
 
         nan_loss_counter = 0
         if epoch_id == 0:
@@ -129,6 +131,8 @@ class SSL_Trainer(object):
             # Prevent exploding kappa by clipping gradients
             if self.clip_type == "Norm":
                 torch.nn.utils.clip_grad_norm_(self.model.backbone_net.parameters(), self.clip)
+                if self.clip == 0.:
+                    self.logger.warning(f"clip_type Norm but clip is 0.")
 
             self.scaler.step(self.optimizer)
             self.scaler.update()
@@ -230,10 +234,11 @@ class SSL_Trainer(object):
                 self.logger.debug(f'GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
                                   f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB\n')
 
-            self.logger.info(f'SSL Loss: {self.ssl_loss_hist[-1]:0.4f}, Regularisation Loss: {self.kl_loss_hist[-1]:0.5f}, '
-                  f'Uncertainty Loss: {self.unc_loss_hist[-1]:0.4f}, Std [mean/min/max]: '
-                  f'[{self.dist_std_hist_stats["mean"][-1]:0.2f}, {self.dist_std_hist_stats["min"][-1]:0.2f}, '
-                  f'{self.dist_std_hist_stats["max"][-1]:0.2f}]')
+            self.logger.info(
+                f'SSL Loss: {self.ssl_loss_hist[-1]:0.4f}, Regularisation Loss: {self.kl_loss_hist[-1]:0.5f}, '
+                f'Uncertainty Loss: {self.unc_loss_hist[-1]:0.4f}, Std [mean/min/max]: '
+                f'[{self.dist_std_hist_stats["mean"][-1]:0.2f}, {self.dist_std_hist_stats["min"][-1]:0.2f}, '
+                f'{self.dist_std_hist_stats["max"][-1]:0.2f}]')
 
             if (epoch + 1) % 1 == 0:
                 recall, auroc, knn = self.evaluate()
