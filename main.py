@@ -68,7 +68,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     data_root, path = get_data_root_and_path(args.cluster, args.run_final)
-    projector = get_projector_settings(args.method, args.projector)
+    projector = get_projector_settings(args.method, args.projector, args.network)
 
     if args.method == "SimCLR":
         method_params = {"projector_hidden": projector, "loss": args.loss, "lambda_reg": args.lambda_reg,
