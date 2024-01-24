@@ -16,9 +16,11 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
-def get_projector_settings(method, projector):
+def get_projector_settings(method, projector, network):
+    p_dim = 512 if network == "resnet18" else 2048
+
     if projector:
-        return (2048, 2048, 1024) if method == "BarlowTwins" else (2048, 2048, 256)
+        return (p_dim, p_dim, 1024) if method == "BarlowTwins" else (p_dim, p_dim, 256)
     return None
 
 def get_data_root_and_path(cluster, run_final):
