@@ -14,39 +14,36 @@ class MCNTXent(nn.Module):
         self.method, self.reduction = get_configuration(loss)
 
     def mask(self, n_batch, n_mc, device):
-        B = 2 * n_batch
-        if self.method == "local":
-            mask_pos = torch.eye(B)
-            mask_pos = mask_pos.roll(shifts=n_batch, dims=0)
-            mask_pos = mask_pos.to(bool)
-            mask_pos = mask_pos.unsqueeze(0).expand(n_mc, 1, 1)
+        b = 2 * n_batch
 
-            mask_self = torch.eye(2 * n_batch, dtype=torch.bool, device=device)
-            mask_self = mask_self.unsqueeze(0).expand(n_mc, 1, 1)
+        if self.method == "local":
+            mask_self = torch.eye(b, dtype=torch.bool, device=device)
+            mask_pos = mask_self.roll(shifts=n_batch, dims=1)
+
+            mask_pos = mask_pos.unsqueeze(0).expand(n_mc, -1, -1)
+            mask_self = mask_self.unsqueeze(0).expand(n_mc, -1, -1)
 
             return mask_self, mask_pos
 
         elif self.method == "pairwise":
-            b = 2 * n_batch
             s = b * n_mc
-            mask_self = torch.zeros([s, s], device=device)
-            mask_pos = torch.zeros([s, s], device=device)
+            mask_self = torch.zeros([s, s], dtype=torch.bool, device=device)
+            mask_pos = torch.zeros([s, s], dtype=torch.bool, device=device)
 
             for i in range(0, n_mc):
-                mask_self += torch.diag(torch.ones(b * (n_mc - i)), i * b)
-                mask_pos += torch.diag(torch.ones(b * (n_mc - i) - n_batch), i * b + n_batch)
+                mask_self += torch.diag(torch.ones(b * (n_mc - i), dtype=torch.bool, device=device), i * b)
+                mask_pos += torch.diag(torch.ones(b * (n_mc - i) - n_batch, dtype=torch.bool, device=device), i * b + n_batch)
 
             mask_self = mask_self + mask_self.T
             mask_pos = mask_pos + mask_pos.T
             mask_neg = mask_pos + mask_self
 
-            return mask_self.to(bool), mask_pos.to(bool), ~mask_neg.to(bool)
+            return mask_self, mask_pos, ~mask_neg
 
     def forward(self, p1, p2):
         n_mc, n_batch, _ = p1.shape
 
-        if self.normalize:
-            p1, p2 = F.normalize(p1, dim=-1), F.normalize(p2, dim=-1)
+        p1, p2 = F.normalize(p1, dim=-1), F.normalize(p2, dim=-1)
 
         z = torch.cat([p1, p2], dim=1)
 
@@ -59,27 +56,28 @@ class MCNTXent(nn.Module):
 
             pos = sim_mat[mask_pos].view(n_mc, 2 * n_batch)
 
-            if self.reduction == "mean":
-                loss = torch.logsumexp(sim_mat, dim=-1) - pos
-                loss = torch.mean(loss, dim=0)
-                return loss.mean()
-
-            elif self.reduction == "min":
-                pass
+            loss = torch.logsumexp(sim_mat, dim=-1) - pos
 
         if self.method == "pairwise":
             mask_self, mask_pos, mask_neg = self.mask(n_batch, n_mc, p1.device)
             z = z.view(n_mc * 2 * n_batch, -1)
 
-            sim_mat = z.matmul(z.transpose(-2, -1))
+            sim_mat = z.matmul(z.transpose(-2, -1))  # [2 * n_mc * n_batch, 2 * n_mc * n_batch]
             sim_mat[mask_self] = float('-inf')
             sim_mat /= self.temperature
 
-            if self.reduction == "mean":
-                loss = torch.logsumexp(sim_mat, dim=-1)[:, None] - sim_mat[mask_pos].view(n_mc * 2 * n_batch, -1)
-                loss = torch.mean(loss, dim=-1)
-                return loss.mean()
+            # Shape of the terms: [1, 2 * n_mc * n_batch], [n_mc, 2 * n_mc * n_batch]
+            loss = torch.logsumexp(sim_mat, dim=-1)[None, :] - sim_mat[mask_pos].view(-1, n_mc * 2 * n_batch)
 
-            elif self.reduction == "min":
-                pass
+        if self.reduction == "mean":
+            loss = torch.mean(loss, dim=0)
+            return loss.mean()
+
+        elif self.reduction == "min":
+            loss, _ = torch.min(loss, dim=0)
+            return loss.mean()
+
+        elif self.reduction == "max":
+            loss, _ = torch.max(loss, dim=0)
+            return loss.mean()
 

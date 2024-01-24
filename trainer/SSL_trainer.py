@@ -238,7 +238,7 @@ class SSL_Trainer(object):
                 f'[{self.dist_std_hist_stats["mean"][-1]:0.2f}, {self.dist_std_hist_stats["min"][-1]:0.2f}, '
                 f'{self.dist_std_hist_stats["max"][-1]:0.2f}]')
 
-            if (epoch + 1) % 1 == 0:
+            if (epoch + 1) % 3 == 0:
                 recall, auroc, knn = self.evaluate()
 
                 if self.environment != "gpu-test":
@@ -248,6 +248,24 @@ class SSL_Trainer(object):
 
                 self.logger.info(f"Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc:0.3f}, Recall: {recall:0.3f}, "
                                  f"knn: {knn:0.1f}\n")
+
+            if (epoch + 1) in evaluate_at:
+                self.save_model(self.save_root, epoch + 1)
+
+                validate = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution,
+                                    model=self.model, epoch=epoch, last_epoch=True, low_shot=False, plot_tsne=True)
+
+                cor_corrupted, p_corrupted = validate.get_metrics()
+                cor_pearson, cor_spearman = validate.get_cor()
+                linear_acc_10 = validate.get_linear_probing()
+
+                if self.environment != "gpu-test":
+                    self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
+                    self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
+
+                    self.tb_logger.add_scalar('kappa/cor_pearson', cor_pearson, epoch)
+                    self.tb_logger.add_scalar('kappa/cor_spearman', cor_spearman, epoch)
+                    self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR10', linear_acc_10, epoch)
 
             # Run evaluation
             if epoch == num_epochs - 1:
@@ -279,9 +297,6 @@ class SSL_Trainer(object):
                     self.tb_logger.add_scalar('ZeroShot/R@1_CIFAR100', recall_cifar100, epoch)
                     self.tb_logger.add_scalar('ZeroShot/knn_CIFAR100', knn_cifar100, epoch)
                     self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR100', linear_acc_100, epoch)
-
-            if (epoch) in evaluate_at:
-                self.save_model(self.save_root, epoch + 1)
 
         # Save final model
         self.save_model(self.save_root, num_epochs)

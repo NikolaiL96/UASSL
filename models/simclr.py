@@ -66,7 +66,7 @@ class SimCLR(nn.Module):
     def initialize_loss(self, loss, temperature, n_mc):
         if loss == "NT-Xent":
             self.loss_fn = NTXent(temperature)
-        elif "MCInfoNCE" in loss:
+        elif "MCNT-Xent" in loss:
             self.loss_fn = MCNTXent(loss, temperature, n_mc)
         elif loss == "KL_Loss":
             self.loss_fn = KL_Loss(self.distribution_type, temperature)
@@ -76,7 +76,8 @@ class SimCLR(nn.Module):
         print(f"We use the {loss}. Temperature set to {temperature}")
 
     def forward(self, x1, x2, epoch):
-        dist1, dist2 = self.backbone_net(x1), self.backbone_net(x2)
+        dist1 = self.backbone_net(x1)
+        dist2 = self.backbone_net(x2)
 
         ssl_loss = self.compute_ssl_loss(dist1, dist2, epoch)
         var_reg = self.regularizer((dist1, dist2))
