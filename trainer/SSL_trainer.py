@@ -63,6 +63,8 @@ class SSL_Trainer(object):
         self.model.train()
         self.model.requires_grad_(True)
 
+        self.model.backbone_net.fc.register_hook(lambda grad: torch.clamp(grad, -2.0, 2.0))
+
         nan_loss_counter = 0
         if epoch_id == 0:
             loading_time = 0.
@@ -112,7 +114,8 @@ class SSL_Trainer(object):
             self.scaler.unscale_(self.optimizer)
 
             # Prevent exploding kappa by clipping gradients
-            torch.nn.utils.clip_grad_norm_(self.model.backbone_net.parameters(), 2.)
+            #torch.nn.utils.clip_grad_norm_(self.model.backbone_net.parameters(), 2.)
+
             self.scaler.step(self.optimizer)
             self.scaler.update()
 
