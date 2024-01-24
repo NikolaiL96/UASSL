@@ -76,7 +76,7 @@ class SSL_Trainer(object):
         self.model.requires_grad_(True)
 
         if self.clip_type == "Hook":
-            grad_clip_hook_(self.model.backbone_net.fc, clip=self.clip)
+            grad_clip_hook_(self.model.backbone_net, clip=self.clip, clip_type=self.clip_type)
             if self.clip == 0.:
                 self.logger.warning(f"clip_type Hook but clip is 0.")
 
