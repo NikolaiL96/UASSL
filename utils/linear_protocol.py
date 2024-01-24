@@ -11,8 +11,7 @@ from torch.cuda.amp import autocast, GradScaler
 
 class Linear_Protocoler(object):
     def __init__(
-            self, encoder, repre_dim: int, variational: bool = True, device: str = "cuda", exclusion_mode='none'
-    ):
+            self, encoder, device, repre_dim: int, variational: bool = True, exclusion_mode='none'):
         self.device = device
         self.variational = variational
         self.use_amp = device.type == 'cuda'

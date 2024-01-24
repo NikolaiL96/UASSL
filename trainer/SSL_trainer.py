@@ -159,9 +159,9 @@ class SSL_Trainer(object):
         elif self.model.backbone_net.name == "UncertaintyNet":
             params = [{'params': [k[1] for k in self.model.named_parameters() if 'kappa' in k[0]], 'lr': 6e-3},
                       {'params': [k[1] for k in self.model.named_parameters() if 'kappa' not in k[0]]}]
-        # elif "resnet" in self.model.backbone_net.name:
-        #     params = [{'params': [k[1] for k in self.model.named_parameters() if 'Probabilistic_Layer' in k[0]], 'lr': 6e-3},
-        #               {'params': [k[1] for k in self.model.named_parameters() if 'Probabilistic_Layer' not in k[0]]}]
+        elif "resnet" in self.model.backbone_net.name:
+            params = [{'params': [k[1] for k in self.model.named_parameters() if 'Probabilistic_Layer' in k[0]], 'lr': 6e-3},
+                      {'params': [k[1] for k in self.model.named_parameters() if 'Probabilistic_Layer' not in k[0]]}]
         else:
             params = self.model.parameters()
 
