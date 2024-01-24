@@ -158,17 +158,17 @@ class SSL_Trainer(object):
         # Define Optimizer
         # params = self.model.parameters()
         print(f"Reduced_lr: {reduced_lr}")
-        print(os.getenv('SBATCH_PARTITION'))
+        print(os.getenv('SLURM_JOB_PARTITION'))
         # Define set of trainable parameters
         if self.fine_tune:
             # When finetune the probabilistic layer
             params = self.model.backbone_net.fc.parameters()
-        elif reduced_lr and self.model.backbone_net.name == "UncertaintyNet":
+        elif (reduced_lr is True) and (self.model.backbone_net.name == "UncertaintyNet"):
             params = [{'params': [k[1] for k in self.model.named_parameters() if 'kappa' in k[0]], 'lr': 6e-3},
                       {'params': [k[1] for k in self.model.named_parameters() if 'kappa' not in k[0]]}]
             self.logger.info(
                 f"We use learning rate of {optim_params['lr']} for the backbone and {6e-3} for KappaModel.")
-        elif "resnet" in self.model.backbone_net.name and reduced_lr:
+        elif ("resnet" in self.model.backbone_net.name) and (reduced_lr is True):
             print("In reduced params")
             params = [
                 {'params': [k[1] for k in self.model.named_parameters() if 'Probabilistic_Layer' in k[0]], 'lr': 6e-3},
