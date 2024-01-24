@@ -72,7 +72,7 @@ class SSL_Trainer(object):
         self.model.train()
         self.model.requires_grad_(True)
 
-        #grad_clip_hook_(self.model.backbone_net.fc, clip=self.clip)
+        grad_clip_hook_(self.model.backbone_net.fc, clip=self.clip)
 
         nan_loss_counter = 0
         if epoch_id == 0:
