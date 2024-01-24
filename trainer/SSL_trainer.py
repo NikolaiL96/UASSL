@@ -43,7 +43,7 @@ class SSL_Trainer(object):
         self.checkpoint_path = checkpoint_path
 
         # Setup tensorboard logging of the training
-        if os.getenv('SBATCH_PARTITION') != "gpu-test":
+        if os.getenv('SLURM_JOB_PARTITION') != "gpu-test":
             self.tb_logger = SummaryWriter(log_dir=os.path.join(save_root, 'tb_logs'))
 
         # Setup logger
@@ -158,23 +158,24 @@ class SSL_Trainer(object):
         # Define Optimizer
         # params = self.model.parameters()
         print(f"Reduced_lr: {reduced_lr}")
-        print(os.getenv('SLURM_JOB_PARTITION'))
+
         # Define set of trainable parameters
         if self.fine_tune:
             # When finetune the probabilistic layer
             params = self.model.backbone_net.fc.parameters()
+
         elif (reduced_lr is True) and (self.model.backbone_net.name == "UncertaintyNet"):
             params = [{'params': [k[1] for k in self.model.named_parameters() if 'kappa' in k[0]], 'lr': 6e-3},
                       {'params': [k[1] for k in self.model.named_parameters() if 'kappa' not in k[0]]}]
-            self.logger.info(
-                f"We use learning rate of {optim_params['lr']} for the backbone and {6e-3} for KappaModel.")
+            self.logger.info(f"We use learning rate of {optim_params['lr']} for the backbone and {6e-3} for KappaModel.")
+
         elif ("resnet" in self.model.backbone_net.name) and (reduced_lr is True):
             print("In reduced params")
             params = [
                 {'params': [k[1] for k in self.model.named_parameters() if 'Probabilistic_Layer' in k[0]], 'lr': 6e-3},
                 {'params': [k[1] for k in self.model.named_parameters() if 'Probabilistic_Layer' not in k[0]]}]
-            self.logger.info(
-                f"We use learning rate of {optim_params['lr']} for the backbone and {6e-3} for fc.")
+            self.logger.info(f"We use learning rate of {optim_params['lr']} for the backbone and {6e-3} for fc.")
+
         else:
             params = self.model.parameters()
 
@@ -228,7 +229,8 @@ class SSL_Trainer(object):
             self.dist_std_hist_stats['max'].append(self._dist_std_stats['max'])
             self.dist_std_hist_stats['mean'].append(self._dist_std_stats['mean'].item() / self._train_len)
             self.dist_std_hist_stats['diversity'].append(self._dist_std_stats['diversity'] / self._train_len)
-            if os.getenv('SBATCH_PARTITION') != "gpu-test":
+
+            if os.getenv('SLURM_JOB_PARTITION') != "gpu-test":
                 self.tb_logger.add_scalar('loss/loss', self.loss_hist[-1], epoch)
                 self.tb_logger.add_scalar('loss/ssl_loss', self.ssl_loss_hist[-1], epoch)
                 self.tb_logger.add_scalar('loss/kl_loss', self.kl_loss_hist[-1], epoch)

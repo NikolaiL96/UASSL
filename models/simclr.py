@@ -87,7 +87,7 @@ class SimCLR(nn.Module):
         if self.loss == "NT-Xent":
 
             # Use distribution's location for the first 5 epoch
-            if epoch < 2:
+            if epoch < 5:
                 z1, z2 = dist1.loc, dist2.loc
             else:
                 z1, z2 = dist1.rsample(), dist2.rsample()

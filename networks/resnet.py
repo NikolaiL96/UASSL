@@ -8,7 +8,7 @@ def cifar_resnet18(in_channels: int = 3):
     # Cifar specifics
     resnet.conv1 = nn.Conv2d(in_channels, 64, 3, 1, 1, bias=False)
     resnet.maxpool = nn.Identity()
-    resnet.name = "ResNet18"
+    resnet.name = "resnet18"
     return resnet
 
 
@@ -19,5 +19,5 @@ def cifar_resnet50(in_channels: int = 3):
     # Cifar specifics
     resnet.conv1 = nn.Conv2d(in_channels, 64, 3, 1, 1, bias=False)
     resnet.maxpool = nn.Identity()
-    resnet.name = "ResNet50"
+    resnet.name = "resnet50"
     return resnet
