@@ -75,10 +75,8 @@ class SSL_Trainer(object):
         self.model.train()
         self.model.requires_grad_(True)
 
-        if self.clip_type == "Hook":
+        if "Hook" in self.clip_type:
             grad_clip_hook_(self.model.backbone_net, clip=self.clip, clip_type=self.clip_type)
-            if self.clip == 0.:
-                self.logger.warning(f"clip_type Hook but clip is 0.")
 
         nan_loss_counter = 0
         if epoch_id == 0:
