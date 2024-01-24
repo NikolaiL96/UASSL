@@ -7,7 +7,7 @@ from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 
 from utils import check_existing_model, Validate, Linear_Protocoler
-from .utils import grad_clip_hook_
+from .utils import grad_clip_hook_, get_params_
 from torch.cuda.amp import autocast, GradScaler
 
 
@@ -42,8 +42,10 @@ class SSL_Trainer(object):
         self.save_root = save_root
         self.checkpoint_path = checkpoint_path
 
+        self.environment = os.getenv('SLURM_JOB_PARTITION') if self.use_amp else "gpu-test"
+
         # Setup tensorboard logging of the training
-        if os.getenv('SLURM_JOB_PARTITION') != "gpu-test":
+        if self.environment != "gpu-test":
             self.tb_logger = SummaryWriter(log_dir=os.path.join(save_root, 'tb_logs'))
 
         # Setup logger
@@ -156,29 +158,7 @@ class SSL_Trainer(object):
         self._total_iters = num_epochs * self._train_len
 
         # Define Optimizer
-        # params = self.model.parameters()
-        print(f"Reduced_lr: {reduced_lr}")
-
-        # Define set of trainable parameters
-        if self.fine_tune:
-            # When finetune the probabilistic layer
-            params = self.model.backbone_net.fc.parameters()
-
-        elif (reduced_lr is True) and (self.model.backbone_net.name == "UncertaintyNet"):
-            params = [{'params': [k[1] for k in self.model.named_parameters() if 'kappa' in k[0]], 'lr': 6e-3},
-                      {'params': [k[1] for k in self.model.named_parameters() if 'kappa' not in k[0]]}]
-            self.logger.info(f"We use learning rate of {optim_params['lr']} for the backbone and {6e-3} for KappaModel.")
-
-        elif ("resnet" in self.model.backbone_net.name) and (reduced_lr is True):
-            print("In reduced params")
-            params = [
-                {'params': [k[1] for k in self.model.named_parameters() if 'Probabilistic_Layer' in k[0]], 'lr': 6e-3},
-                {'params': [k[1] for k in self.model.named_parameters() if 'Probabilistic_Layer' not in k[0]]}]
-            self.logger.info(f"We use learning rate of {optim_params['lr']} for the backbone and {6e-3} for fc.")
-
-        else:
-            params = self.model.parameters()
-
+        params = get_params_(self.fine_tune, self.model, reduced_lr, optim_params["lr"], self.logger)
         self.optimizer = optimizer(params, **optim_params)
 
         # Define Scheduler
@@ -230,7 +210,7 @@ class SSL_Trainer(object):
             self.dist_std_hist_stats['mean'].append(self._dist_std_stats['mean'].item() / self._train_len)
             self.dist_std_hist_stats['diversity'].append(self._dist_std_stats['diversity'] / self._train_len)
 
-            if os.getenv('SLURM_JOB_PARTITION') != "gpu-test":
+            if self.environment != "gpu-test":
                 self.tb_logger.add_scalar('loss/loss', self.loss_hist[-1], epoch)
                 self.tb_logger.add_scalar('loss/ssl_loss', self.ssl_loss_hist[-1], epoch)
                 self.tb_logger.add_scalar('loss/kl_loss', self.kl_loss_hist[-1], epoch)
@@ -255,9 +235,10 @@ class SSL_Trainer(object):
             if (epoch + 1) % 1 == 0:
                 recall, auroc, knn = self.evaluate()
 
-                self.tb_logger.add_scalar('kappa/AUROC', auroc, epoch)
-                self.tb_logger.add_scalar('kappa/R@1', recall, epoch)
-                self.tb_logger.add_scalar('kappa/knn', knn, epoch)
+                if self.environment != "gpu-test":
+                    self.tb_logger.add_scalar('kappa/AUROC', auroc, epoch)
+                    self.tb_logger.add_scalar('kappa/R@1', recall, epoch)
+                    self.tb_logger.add_scalar('kappa/knn', knn, epoch)
 
                 self.logger.info(f"Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc:0.3f}, Recall: {recall:0.3f}, "
                                  f"knn: {knn:0.1f}\n")
@@ -273,24 +254,25 @@ class SSL_Trainer(object):
 
                 cor_corrupted, p_corrupted = validate.get_metrics()
                 cor_pearson, cor_spearman = validate.get_cor()
-
-                self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
-                self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
-
-                self.tb_logger.add_scalar('kappa/cor_pearson', cor_pearson, epoch)
-                self.tb_logger.add_scalar('kappa/cor_spearman', cor_spearman, epoch)
-
                 linear_acc_10 = validate.get_linear_probing()
-                self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR10', linear_acc_10, epoch)
+
+                if self.environment != "gpu-test":
+                    self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
+                    self.tb_logger.add_scalar('kappa/p_corrupted', p_corrupted, epoch)
+
+                    self.tb_logger.add_scalar('kappa/cor_pearson', cor_pearson, epoch)
+                    self.tb_logger.add_scalar('kappa/cor_spearman', cor_spearman, epoch)
+                    self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR10', linear_acc_10, epoch)
 
                 recall_cifar100, auroc_cifar100 = validate_low_shot.recall_auroc()
                 linear_acc_100 = validate_low_shot.get_linear_probing()
                 knn_cifar100 = validate_low_shot.knn_accuracy()
 
-                self.tb_logger.add_scalar('ZeroShot/AUROC_CIFAR100', auroc_cifar100, epoch)
-                self.tb_logger.add_scalar('ZeroShot/R@1_CIFAR100', recall_cifar100, epoch)
-                self.tb_logger.add_scalar('ZeroShot/knn_CIFAR100', knn_cifar100, epoch)
-                self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR100', linear_acc_100, epoch)
+                if self.environment != "gpu-test":
+                    self.tb_logger.add_scalar('ZeroShot/AUROC_CIFAR100', auroc_cifar100, epoch)
+                    self.tb_logger.add_scalar('ZeroShot/R@1_CIFAR100', recall_cifar100, epoch)
+                    self.tb_logger.add_scalar('ZeroShot/knn_CIFAR100', knn_cifar100, epoch)
+                    self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR100', linear_acc_100, epoch)
 
             if (epoch) in evaluate_at:
                 self.save_model(self.save_root, epoch + 1)
