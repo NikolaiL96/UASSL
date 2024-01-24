@@ -237,7 +237,7 @@ class SSL_Trainer(object):
                 self.tb_logger.add_scalar('kappa/kappa_min', self.dist_std_hist_stats["min"][-1], epoch)
                 self.tb_logger.add_scalar('kappa/kappa_max', self.dist_std_hist_stats["max"][-1], epoch)
 
-            self.logger.info(f'Epoch: {epoch}, Time epoch: {time.time() - start_time:0.1f}\n')
+            self.logger.info(f'Epoch: {epoch}, Time epoch: {time.time() - start_time:0.1f}')
 
             if self.device.type == 'cuda':
                 self.logger.debug(f'GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
@@ -256,7 +256,7 @@ class SSL_Trainer(object):
                 self.tb_logger.add_scalar('kappa/knn', knn, epoch)
 
                 self.logger.info(f"Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc:0.3f}, Recall: {recall:0.3f}, "
-                                 f"knn: {knn:0.1f}")
+                                 f"knn: {knn:0.1f}\n")
 
             # Run evaluation
             if epoch == num_epochs - 1:
