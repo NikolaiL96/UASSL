@@ -12,13 +12,14 @@ from torch.cuda.amp import autocast, GradScaler
 
 class SSL_Trainer(object):
     def __init__(self, model, ssl_data, data_root, device='cuda', save_root="", checkpoint_path=None, fine_tune="",
-                 distribution=None, train_data='cifar10'):
+                 distribution=None, train_data='cifar10', clip=0.):
 
         super().__init__()
         # Define device
         self.device = torch.device(device)
         self.use_amp = device.type == 'cuda'
         self.scaler = GradScaler(enabled=self.use_amp)
+        self.clip = clip
 
         self.train_data = train_data
         self.data_root = data_root
@@ -64,7 +65,7 @@ class SSL_Trainer(object):
         self.model.train()
         self.model.requires_grad_(True)
 
-        grad_clip_hook_(self.model.backbone_net.fc)
+        grad_clip_hook_(self.model.backbone_net.fc, clip=self.clip)
 
         nan_loss_counter = 0
         if epoch_id == 0:

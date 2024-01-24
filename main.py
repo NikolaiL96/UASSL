@@ -59,6 +59,7 @@ if __name__ == "__main__":
     parser.add_argument("--lambda_bt", "-lbt", default=0.005, type=float)
     parser.add_argument("--lambda_unc", "-lu", default=0., type=float)
     parser.add_argument("--optimizer", default="SGD", type=str)
+    parser.add_argument("--clip", default=0., type=float)
     parser.add_argument("--run_final", "-rf", default=False, type=str2bool)
 
     args = parser.parse_args()
@@ -93,6 +94,7 @@ if __name__ == "__main__":
                   "dataset": args.dataset,
                   "optimizer": args.optimizer,
                   "optim_params": get_optimizer(args.optimizer),
+                  "clip": args.clip,
                   "epochs": args.epochs,
                   "warmup": args.warmup,
                   "batch_size": args.batch_size,

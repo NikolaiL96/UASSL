@@ -32,6 +32,7 @@ def my_config():
     network = 'resnet18'
     optimizer = "SGD"
     optim_params = None
+    clip = 0.
     loss = None
     lambda_reg = 0.01
     temperature = 0.05

@@ -32,6 +32,7 @@ def main(
         slug,
         lambda_reg,
         optim_params,
+        clip,
         train_params,
         eval_params,
         dataset,
@@ -39,7 +40,7 @@ def main(
         seed,
         fine_tune,
         _run,
-        _log,
+        _log
 ):
     save_root = f"{artifact_dir}/{slug}"
     _log.info(f"using data from `{data_root}`")
@@ -66,7 +67,7 @@ def main(
     model.to(device)
 
     cifar10_trainer = SSL_Trainer(model, ssl_data=ssl_data, data_root=data_root, device=device, save_root=save_root,
-                                  fine_tune=fine_tune, distribution=distribution_type, train_data=dataset)
+                                  fine_tune=fine_tune, distribution=distribution_type, train_data=dataset, clip=clip)
 
     scheduler_params = {"T_max": (train_params["num_epochs"] - train_params["warmup_epochs"]) * len(ssl_data.train_dl)}
 
