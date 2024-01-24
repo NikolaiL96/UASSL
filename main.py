@@ -18,7 +18,7 @@ if __name__ == "__main__":
     parser.add_argument("--warmup", "-w", default=10, type=int)
     parser.add_argument("--distribution", "-dist", default="sphere")
     parser.add_argument("--dataset", "-d", default="cifar10")
-    parser.add_argument("--lr", default=6e-2, type=float)
+    parser.add_argument("--learning_rate", "-lr", default=6e-2, type=float)
     parser.add_argument("--loss", "-l", default="NT-Xent")
     parser.add_argument("--lambda_reg", "-lam", default=0.001, type=float)
     parser.add_argument("--temperature", "-t", default=0.01, type=float)
@@ -65,7 +65,7 @@ if __name__ == "__main__":
                   "method": args.method,
                   "dataset": args.dataset,
                   "optimizer": args.optimizer,
-                  "optim_params": get_optimizer(args.optimizer),
+                  "optim_params": get_optimizer(args.optimizer, args.learning_rate),
                   "clip": args.clip,
                   "reduced_lr": args.reduced_lr,
                   "epochs": args.epochs,
