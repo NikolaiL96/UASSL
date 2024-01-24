@@ -6,6 +6,7 @@ from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 
 from utils import check_existing_model, Validate, Linear_Protocoler
+from .utils import grad_clip_hook_
 from torch.cuda.amp import autocast, GradScaler
 
 
@@ -63,7 +64,7 @@ class SSL_Trainer(object):
         self.model.train()
         self.model.requires_grad_(True)
 
-        self.model.backbone_net.fc.register_hook(lambda grad: torch.clamp(grad, -2.0, 2.0))
+        grad_clip_hook_(self.model.backbone_net.fc)
 
         nan_loss_counter = 0
         if epoch_id == 0:
