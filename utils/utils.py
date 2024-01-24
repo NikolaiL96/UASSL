@@ -13,6 +13,38 @@ from pathlib import Path
 
 from distributions import powerspherical as ps
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise TypeError('Boolean value expected.')
+
+def get_projector_settings(method, projector, network):
+    p_dim = 512 if network == "resnet18" else 2048
+
+    if projector:
+        return (p_dim, p_dim, 1024) if method == "BarlowTwins" else (p_dim, p_dim, 256)
+    return None
+
+def get_data_root_and_path(cluster, run_final):
+    if cluster:
+        data_root = "./data/"
+        path = "/home/lorenzni/runs_SSL_final" if run_final else "/home/lorenzni/runs_SSL"
+    else:
+        data_root = "/Users/nikolai.lorenz/Desktop/Statistik/Masterarbeit/Code/SSL_VAE/data"
+        path = "./saved_runs/"
+    return data_root, path
+
+def get_optimizer(optimizer, lr):
+    if optimizer == "SGD":
+        optim_params = {"lr": lr, "momentum": 0.9, "weight_decay": 5e-4}
+    if optimizer == "Lamb":
+        optim_params = {"lr": lr, "max_grad_norm": 10., "weight_decay": 5e-4}
+    return optim_params
 
 
 def check_existing_model(save_root, device, ask_user=False):

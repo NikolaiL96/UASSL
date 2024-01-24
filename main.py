@@ -5,39 +5,8 @@ import argparse
 import sys
 import datetime
 
+from utils.utils import get_optimizer, get_projector_settings, get_data_root_and_path, str2bool
 
-def str2bool(v):
-    if isinstance(v, bool):
-        return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
-
-def get_projector_settings(method, projector, network):
-    p_dim = 512 if network == "resnet18" else 2048
-
-    if projector:
-        return (p_dim, p_dim, 1024) if method == "BarlowTwins" else (p_dim, p_dim, 256)
-    return None
-
-def get_data_root_and_path(cluster, run_final):
-    if cluster:
-        data_root = "./data/"
-        path = "/home/lorenzni/runs_SSL_final" if run_final else "/home/lorenzni/runs_SSL"
-    else:
-        data_root = "/Users/nikolai.lorenz/Desktop/Statistik/Masterarbeit/Code/SSL_VAE/data"
-        path = "./saved_runs/"
-    return data_root, path
-
-def get_optimizer(optimizer):
-    if optimizer == "SGD":
-        optim_params = {"lr": args.lr, "momentum": 0.9, "weight_decay": 5e-4}
-    if optimizer == "Lamb":
-        optim_params = {"lr": args.lr, "max_grad_norm": 10., "weight_decay": 5e-4}
-    return optim_params
 
 if __name__ == "__main__":
     sys.path.append("")
