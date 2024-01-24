@@ -61,11 +61,7 @@ class BarlowTwins(nn.Module):
         dist1 = self.backbone_net(x1)
         dist2 = self.backbone_net(x2)
 
-        # Use distribution's location for the first 5 epoch
-        if epoch < 5:
-            z1, z2 = dist1.loc, dist2.loc
-        else:
-            z1, z2 = dist1.rsample(), dist2.rsample()
+        z1, z2 = dist1.rsample(), dist2.rsample()
 
         # Get Sample Projections
         p1 = self.projector(z1)
