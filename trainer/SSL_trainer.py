@@ -48,7 +48,7 @@ class SSL_Trainer(object):
 
         # Setup logger
         logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger()
 
         # Model
         self.model = model.to(self.device)
