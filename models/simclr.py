@@ -36,7 +36,7 @@ class SimCLR(nn.Module):
         self.loss = loss
         self.temperature = temperature
         self.lambda_unc = lambda_unc
-        self.loc_warmup
+        self.loc_warmup = loc_warmup
         self.n_mc = n_mc
         self.distribution_type = distribution_type
 
