@@ -32,7 +32,7 @@ if __name__ == "__main__":
     parser.add_argument("--lambda_unc", "-lu", default=0., type=float)
     parser.add_argument("--optimizer", default="SGD", type=str)
     parser.add_argument("--clip", default=0., type=float)
-    parser.add_argument("--clip_type", default=None, type=str)
+    parser.add_argument("--clip_type", default="None", type=str)
     parser.add_argument("--reduced_lr", default=False, type=str2bool)
     parser.add_argument("--run_final", "-rf", default=False, type=str2bool)
 
