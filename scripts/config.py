@@ -33,6 +33,7 @@ def my_config():
     optimizer = "SGD"
     optim_params = None
     clip = 0.
+    clip_type = "Norm"
     reduced_lr = False
     loss = None
     lambda_reg = 0.01

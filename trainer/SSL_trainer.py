@@ -13,7 +13,7 @@ from torch.cuda.amp import autocast, GradScaler
 
 class SSL_Trainer(object):
     def __init__(self, model, ssl_data, data_root, device='cuda', save_root="", checkpoint_path=None, fine_tune="",
-                 distribution=None, train_data='cifar10', clip=0.):
+                 distribution=None, train_data='cifar10', clip=0., clip_type="Norm"):
 
         super().__init__()
         # Define device
@@ -21,6 +21,7 @@ class SSL_Trainer(object):
         self.use_amp = device.type == 'cuda'
         self.scaler = GradScaler(enabled=self.use_amp)
         self.clip = clip
+        self.clip_type = clip_type
 
         self.train_data = train_data
         self.data_root = data_root

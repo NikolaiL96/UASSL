@@ -18,7 +18,8 @@ class SimCLR(nn.Module):
             distribution_type: str = None,
             lambda_reg: float = 0.001,
             lambda_unc: float = 0.,
-            n_mc: int = 16
+            n_mc: int = 16,
+            loc_warmup: int = 0,
     ):
         super().__init__()
 
@@ -35,6 +36,7 @@ class SimCLR(nn.Module):
         self.loss = loss
         self.temperature = temperature
         self.lambda_unc = lambda_unc
+        self.loc_warmup
         self.n_mc = n_mc
         self.distribution_type = distribution_type
 
@@ -87,7 +89,7 @@ class SimCLR(nn.Module):
         if self.loss == "NT-Xent":
 
             # Use distribution's location for the first 5 epoch
-            if epoch < 5:
+            if epoch < self.loc_warmup:
                 z1, z2 = dist1.loc, dist2.loc
             else:
                 z1, z2 = dist1.rsample(), dist2.rsample()

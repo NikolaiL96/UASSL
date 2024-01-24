@@ -16,6 +16,7 @@ if __name__ == "__main__":
     parser.add_argument("--method", "-m", default="SimCLR")
     parser.add_argument("--epochs", "-e", default=800, type=int)
     parser.add_argument("--warmup", "-w", default=10, type=int)
+    parser.add_argument("--loc_warmup", default=0, type=int)
     parser.add_argument("--distribution", "-dist", default="sphere")
     parser.add_argument("--dataset", "-d", default="cifar10")
     parser.add_argument("--learning_rate", "-lr", default=6e-2, type=float)
@@ -31,6 +32,7 @@ if __name__ == "__main__":
     parser.add_argument("--lambda_unc", "-lu", default=0., type=float)
     parser.add_argument("--optimizer", default="SGD", type=str)
     parser.add_argument("--clip", default=0., type=float)
+    parser.add_argument("--clip_type", default="Norm", type=str)
     parser.add_argument("--reduced_lr", default=False, type=str2bool)
     parser.add_argument("--run_final", "-rf", default=False, type=str2bool)
 
@@ -42,7 +44,7 @@ if __name__ == "__main__":
     if args.method == "SimCLR":
         method_params = {"projector_hidden": projector, "loss": args.loss, "lambda_reg": args.lambda_reg,
                          "temperature": args.temperature, "lambda_unc": args.lambda_unc,
-                         "n_mc": args.n_mc}
+                         "n_mc": args.n_mc, "loc_warmup": args.loc_warmup}
     elif args.method == "BarlowTwins":
         method_params = {"projector_hidden": projector, "loss": args.loss, "lambda_bt": args.lambda_bt,
                          "lambda_reg": args.lambda_reg, "lambda_unc": args.lambda_unc}
@@ -67,6 +69,7 @@ if __name__ == "__main__":
                   "optimizer": args.optimizer,
                   "optim_params": get_optimizer(args.optimizer, args.learning_rate),
                   "clip": args.clip,
+                  "clip_type": args.clip_type,
                   "reduced_lr": args.reduced_lr,
                   "epochs": args.epochs,
                   "warmup": args.warmup,
