@@ -76,7 +76,7 @@ def get_optimizer(optimizer, method, lr=6e-2, batch_size=512):
 
     elif method == "BarlowTwins":
         optim_params["lr"] = 0.3 * batch_size / 512
-        optim_params["weight_decay"] = 1.0e-6
+        optim_params["weight_decay"] = 5e-6
     else:
         optim_params["lr"] = lr
 
@@ -94,7 +94,7 @@ def get_train_params(method, optimizer, epochs, reduced_lr, batch_size, lr=6e-2,
         eta = 1.0e-6
     elif method == "BarlowTwins":
         warmup = 10
-        #eta = 1.0e-6
+        eta = 1.0e-6
 
     optim_params = get_optimizer(optimizer=optimizer, method=method, batch_size=batch_size, lr=lr)
 
