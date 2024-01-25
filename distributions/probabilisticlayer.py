@@ -30,10 +30,11 @@ class Probabilistic_Layer(nn.Module):
         else:
             out_features = in_features
 
-        if distribution not in ["sphere", "sphereNoFC"]:
+        if distribution != "sphereNoFC":
             self.layer = nn.Linear(in_features, out_features, bias=use_bias)
         else:
             self.layer = nn.Identity()
+
         self.eps = eps
 
     def forward(self, x):
