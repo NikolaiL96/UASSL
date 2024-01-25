@@ -45,7 +45,7 @@ if __name__ == "__main__":
     projector = get_projector_settings(args.method, args.projector, args.network, args.projector_out,
                                        args.projector_hidden)
     train_params, eta = get_train_params(args.method, args.optimizer, args.epochs, args.reduced_lr, args.batch_size,
-                                         args.learning_rate)
+                                         args.learning_rate, args.warmup)
 
     if args.method == "SimCLR":
         method_params = {"projector_hidden": projector, "loss": args.loss, "lambda_reg": args.lambda_reg,
