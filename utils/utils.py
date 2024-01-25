@@ -23,12 +23,18 @@ def str2bool(v):
     else:
         raise TypeError('Boolean value expected.')
 
-def get_projector_settings(method, projector, network):
+def get_projector_settings(method, projector, network, projector_out=None):
     p_dim = 512 if network == "resnet18" else 2048
 
-    if projector:
+    if (projector is True) and (projector_out is None):
         return (p_dim, p_dim, 2048) if method == "BarlowTwins" else (p_dim, p_dim, 256)
-    return None
+
+    # We only want to have a custom projector out-dimension for BarlowTwins
+    elif (projector is True) and (projector_out is not None):
+        return (p_dim, p_dim, projector_out) if method == "BarlowTwins" else (p_dim, p_dim, 256)
+
+    else:
+        return None
 
 def get_data_root_and_path(cluster, run_final):
     if cluster:
