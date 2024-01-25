@@ -23,12 +23,17 @@ class Probabilistic_Layer(nn.Module):
             out_features = in_features + 1
         elif distribution == "normal":
             out_features = in_features * 2
-        elif distribution == "vonMisesFisherNode" or distribution == "normalSingleScale":
+        elif distribution in ["vonMisesFisherNode", "normalSingleScale"]:
             out_features = in_features + 1
+        elif distribution in ["sphere", "sphereNoFC"]:
+            out_features = in_features
         else:
             out_features = in_features
 
-        self.layer = nn.Linear(in_features, out_features, bias=use_bias)
+        if distribution not in ["sphere", "sphereNoFC"]:
+            self.layer = nn.Linear(in_features, out_features, bias=use_bias)
+        else:
+            self.layer = nn.Identity()
         self.eps = eps
 
     def forward(self, x):
