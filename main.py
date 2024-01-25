@@ -1,4 +1,5 @@
 import os
+import logging
 from scripts.train import ex
 
 import argparse
@@ -35,6 +36,7 @@ if __name__ == "__main__":
     parser.add_argument("--clip_type", default="None", type=str)
     parser.add_argument("--reduced_lr", default=False, type=str2bool)
     parser.add_argument("--run_final", "-rf", default=False, type=str2bool)
+    parser.add_argument("--log_level", default="debug", type=str)
 
     args = parser.parse_args()
 

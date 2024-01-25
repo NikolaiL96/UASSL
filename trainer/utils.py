@@ -1,5 +1,7 @@
 import torch
+import logging
 
+logger = logging.getLogger(__name__)
 
 def grad_clip_hook_(model, clip=2., clip_type="Hookfc"):
     # No clipping needed if clip<0.
@@ -17,7 +19,7 @@ def grad_clip_hook_(model, clip=2., clip_type="Hookfc"):
         p.register_hook(clip_fn)
 
 
-def get_params_(fine_tune, model, reduced_lr, lr, logger, lr_fc=6e-3):
+def get_params_(fine_tune, model, reduced_lr, lr, lr_fc=6e-3):
     # Define set of trainable parameters
     if fine_tune:
         # When finetune the probabilistic layer
@@ -26,13 +28,13 @@ def get_params_(fine_tune, model, reduced_lr, lr, logger, lr_fc=6e-3):
     elif (reduced_lr is True) and (model.backbone_net.name == "UncertaintyNet"):
         params = [{'params': [k[1] for k in model.named_parameters() if 'kappa' in k[0]], 'lr': lr_fc},
                   {'params': [k[1] for k in model.named_parameters() if 'kappa' not in k[0]]}]
-        logger.info(f"Learning rate of {lr} for the backbone and {lr_fc} for KappaModel.")
+        logger.debug(f"Learning rate of {lr} for the backbone and {lr_fc} for KappaModel.")
 
     elif ("resnet" in model.backbone_net.name) and (reduced_lr is True):
         params = [
             {'params': [k[1] for k in model.named_parameters() if 'Probabilistic_Layer' in k[0]], 'lr': lr_fc},
             {'params': [k[1] for k in model.named_parameters() if 'Probabilistic_Layer' not in k[0]]}]
-        logger.info(f"Learning rate of {lr} for the backbone and {lr_fc} for fc.")
+        logger.debug(f"Learning rate of {lr} for the backbone and {lr_fc} for fc.")
 
     else:
         params = model.parameters()

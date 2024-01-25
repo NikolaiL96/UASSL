@@ -10,6 +10,9 @@ from utils import check_existing_model, Validate, Linear_Protocoler
 from .utils import grad_clip_hook_, get_params_
 from torch.cuda.amp import autocast, GradScaler
 
+logger = logging.basicConfig(level=logging.DEBUG, format='%(levelname)s - %(message)s')
+logger.debug("Logger in SSL-trainer.")
+
 
 class SSL_Trainer(object):
     def __init__(self, model, ssl_data, data_root, device='cuda', save_root="", checkpoint_path=None, fine_tune="",
@@ -48,10 +51,6 @@ class SSL_Trainer(object):
         # Setup tensorboard logging of the training
         if self.environment != "gpu-test":
             self.tb_logger = SummaryWriter(log_dir=os.path.join(save_root, 'tb_logs'))
-
-        # Setup logger
-        logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
-        self.logger = logging.getLogger()
 
         # Model
         self.model = model.to(self.device)
@@ -112,7 +111,7 @@ class SSL_Trainer(object):
             self._dist_std_stats['diversity'] += dist1.scale.std().item()
 
             if torch.isnan(loss) or torch.isinf(loss):
-                self.logger.warning(f"We have a NAN or Inf Loss in either SSL {ssl_loss} or KL {kl_loss}")
+                logger.warning(f"We have a NAN or Inf Loss in either SSL {ssl_loss} or KL {kl_loss}")
                 nan_loss_counter += 1
                 # We just exclude this batch because of nan loss, but not to many times
                 if nan_loss_counter < 10:
@@ -130,7 +129,7 @@ class SSL_Trainer(object):
             if self.clip_type == "Norm":
                 torch.nn.utils.clip_grad_norm_(self.model.backbone_net.parameters(), self.clip)
                 if self.clip == 0.:
-                    self.logger.warning(f"clip_type Norm but clip is 0.")
+                    logger.warning(f"clip_type Norm but clip is 0.")
 
             self.scaler.step(self.optimizer)
             self.scaler.update()
@@ -149,7 +148,7 @@ class SSL_Trainer(object):
                 backward_time += time.time() - current_timestep
                 current_timestep = time.time()
         if epoch_id == 0:
-            self.logger.info(f"Loading time {loading_time:.1f}s, Forward Time {forward_time:.1f}s, Backward Time "
+            logger.info(f"Loading time {loading_time:.1f}s, Forward Time {forward_time:.1f}s, Backward Time "
                              f"{backward_time:.1f}s")
 
     def train(self, num_epochs, optimizer, scheduler, optim_params, scheduler_params, warmup_epochs=10,
@@ -163,7 +162,7 @@ class SSL_Trainer(object):
         self._total_iters = num_epochs * self._train_len
 
         # Define Optimizer
-        params = get_params_(self.fine_tune, self.model, reduced_lr, optim_params["lr"], self.logger)
+        params = get_params_(self.fine_tune, self.model, reduced_lr, optim_params["lr"], logger)
         self.optimizer = optimizer(params, **optim_params)
 
         # Define Scheduler
@@ -226,13 +225,13 @@ class SSL_Trainer(object):
                 self.tb_logger.add_scalar('kappa/kappa_min', self.dist_std_hist_stats["min"][-1], epoch)
                 self.tb_logger.add_scalar('kappa/kappa_max', self.dist_std_hist_stats["max"][-1], epoch)
 
-            self.logger.info(f'Epoch: {epoch}, Time epoch: {time.time() - start_time:0.1f}')
+            logger.info(f'Epoch: {epoch}, Time epoch: {time.time() - start_time:0.1f}')
 
             if self.device.type == 'cuda':
-                self.logger.debug(f'GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
+                logger.debug(f'GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
                                   f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB\n')
 
-            self.logger.info(
+            logger.info(
                 f'SSL Loss: {self.ssl_loss_hist[-1]:0.4f}, Regularisation Loss: {self.kl_loss_hist[-1]:0.5f}, '
                 f'Uncertainty Loss: {self.unc_loss_hist[-1]:0.4f}, Std [mean/min/max]: '
                 f'[{self.dist_std_hist_stats["mean"][-1]:0.2f}, {self.dist_std_hist_stats["min"][-1]:0.2f}, '
@@ -246,7 +245,7 @@ class SSL_Trainer(object):
                     self.tb_logger.add_scalar('kappa/R@1', recall, epoch)
                     self.tb_logger.add_scalar('kappa/knn', knn, epoch)
 
-                self.logger.info(f"Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc:0.3f}, Recall: {recall:0.3f}, "
+                logger.info(f"Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc:0.3f}, Recall: {recall:0.3f}, "
                                  f"knn: {knn:0.1f}\n")
 
             if (epoch + 1) in evaluate_at:
@@ -300,7 +299,7 @@ class SSL_Trainer(object):
 
         # Save final model
         self.save_model(self.save_root, num_epochs)
-        self.logger.info("Training completed. Final model saved.")
+        logger.info("Training completed. Final model saved.")
 
     def save_model(self, save_root, epoch):
         save_data = {'model': self.model.state_dict(),
@@ -330,7 +329,7 @@ class SSL_Trainer(object):
                     self.kl_loss_hist = saved_data['kl_loss_hist']
                     self._hist_lr = saved_data['lr_hist']
                 except Exception as e:
-                    self.logger.error(f'Error loading model: {e}')
+                    logger.error(f'Error loading model: {e}')
 
                 if return_vals:
                     return epoch_start, saved_data['optim'], saved_data['sched']

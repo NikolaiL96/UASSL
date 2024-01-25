@@ -1,21 +1,35 @@
 from os import listdir
 from os.path import isfile, join
 from collections import OrderedDict
-
-import numpy as np
-
-import torch
-import torch.nn.functional as F
+import logging
 
 import requests
 import io
 from pathlib import Path
+
+import numpy as np
+import torch
+import torch.nn.functional as F
 
 from scripts.lamp import Lamb
 from torch.optim import SGD
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from distributions import powerspherical as ps
+
+
+def log_level(log_level="info"):
+    log_level = log_level.lower()
+
+    log_levels = {
+        'debug': logging.DEBUG,
+        'info': logging.INFO,
+        'warning': logging.WARNING,
+        'error': logging.ERROR,
+        'critical': logging.CRITICAL
+    }
+    return log_levels[log_level]
+
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -26,6 +40,7 @@ def str2bool(v):
         return False
     else:
         raise TypeError('Boolean value expected.')
+
 
 def get_projector_settings(method, projector, network, projector_out=None):
     p_dim = 512 if network == "resnet18" else 2048
@@ -40,6 +55,7 @@ def get_projector_settings(method, projector, network, projector_out=None):
     else:
         return None
 
+
 def get_data_root_and_path(cluster, run_final):
     if cluster:
         data_root = "./data/"
@@ -48,6 +64,7 @@ def get_data_root_and_path(cluster, run_final):
         data_root = "/Users/nikolai.lorenz/Desktop/Statistik/Masterarbeit/Code/SSL_VAE/data"
         path = "./saved_runs/"
     return data_root, path
+
 
 def get_optimizer(optimizer, method, lr=6e-2, batch_size=512):
     if method == "SimCLR":
@@ -64,6 +81,7 @@ def get_optimizer(optimizer, method, lr=6e-2, batch_size=512):
         optim_params["max_grad_norm"] = 10
     return optim_params
 
+
 def get_train_params(method, optimizer, epochs, reduced_lr, batch_size, lr=6e-2):
     if method == "SimCLR":
         eta = 1.0e-6
@@ -75,15 +93,15 @@ def get_train_params(method, optimizer, epochs, reduced_lr, batch_size, lr=6e-2)
     optim_params = get_optimizer(optimizer=optimizer, method=method, batch_size=batch_size, lr=lr)
 
     return {
-        "num_epochs": int(epochs),
-        "optimizer": SGD if optimizer == "SGD" else Lamb,
-        "scheduler": CosineAnnealingLR,
-        "warmup_epochs": int(warmup),
-        "iter_scheduler": True,
-        "evaluate_at": [10, 25, 50, 75, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 650, 700, 750, 800],
-        "reduced_lr": reduced_lr,
-        "optim_params": optim_params,
-    }, eta
+               "num_epochs": int(epochs),
+               "optimizer": SGD if optimizer == "SGD" else Lamb,
+               "scheduler": CosineAnnealingLR,
+               "warmup_epochs": int(warmup),
+               "iter_scheduler": True,
+               "evaluate_at": [10, 25, 50, 75, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 650, 700, 750, 800],
+               "reduced_lr": reduced_lr,
+               "optim_params": optim_params,
+           }, eta
 
 
 def check_existing_model(save_root, device, ask_user=False):
@@ -182,7 +200,7 @@ def get_cifar10h():
     return data
 
 
-def  knn_predict(
+def knn_predict(
         feature: torch.Tensor,
         feature_bank: torch.Tensor,
         feature_labels: torch.Tensor,
@@ -319,6 +337,7 @@ def _split_name(name):
 
     return model_params, dataset
 
+
 def print_parameter_status(model):
     for name, param in model.named_parameters():
         if param.requires_grad:
@@ -327,12 +346,14 @@ def print_parameter_status(model):
             status = "Frozen"
         print(f"Layer: {name}, Parameter Status: {status}")
 
+
 def _get_dict(checkpoint, starts_with):
     _state_dict = OrderedDict()
     for k, v in checkpoint.items():
         name = k.replace(starts_with, "")
         _state_dict[name] = v
     return _state_dict
+
 
 def _get_state_dict(checkpoint):
     state_dict_projector = OrderedDict((key, checkpoint[key]) for key in checkpoint if key.startswith("proj"))
@@ -342,4 +363,3 @@ def _get_state_dict(checkpoint):
     _state_dict_projector = _get_dict(state_dict_projector, "projector.")
 
     return _state_dict_backbone, _state_dict_projector
-

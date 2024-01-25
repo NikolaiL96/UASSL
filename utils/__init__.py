@@ -7,4 +7,4 @@ from .ssl_datasets import load_dataset
 from .validate import Validate
 from .utils import _find_low_and_high_images, get_cifar10h, knn_predict, _get_model_name, \
     _split_name, print_parameter_status, _get_state_dict, get_optimizer, get_projector_settings, \
-    get_data_root_and_path, str2bool, get_train_params
+    get_data_root_and_path, str2bool, get_train_params, log_level
