@@ -84,7 +84,7 @@ class Validate:
 
         try:
             cifar10h = get_cifar10h()
-            unc_h= entropy(cifar10h, axis=1)
+            unc_h = 1 - entropy(cifar10h, axis=1)
 
             corr = np.corrcoef(unc, unc_h)
             rank_corr = spearmanr(unc, unc_h)[0]

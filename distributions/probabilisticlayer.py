@@ -45,7 +45,7 @@ class Probabilistic_Layer(nn.Module):
             out_dist = dist.Normal(mean, std)
             return out_dist
 
-        if self.distribution == "sphere" or self.distribution == "sphereNoFC":
+        if self.distribution in ["sphere", "sphereNoFC"]:
             mu = self.layer(x)
             norm_mu = torch.linalg.norm(mu, dim=1, keepdim=True)
             return pointdistribution.PointDistribution(mu / norm_mu, norm_mu.squeeze())
@@ -56,13 +56,6 @@ class Probabilistic_Layer(nn.Module):
 
             const = torch.pow(torch.tensor(self.dim).to(mu.device), 1 / 2.)
             kappa = const * nn.functional.softplus(feats[:, -1]) + self.eps
-            return powerspherical.PowerSpherical(mu, kappa)
-
-        if self.distribution == "powerspherical_exp":
-            feats = self.layer(x)
-            mu = nn.functional.normalize(feats[:, :self.dim], dim=1)
-
-            kappa = torch.exp(feats[:, -1] + 1) + self.eps
             return powerspherical.PowerSpherical(mu, kappa)
 
         if self.distribution == "vonMisesFisher":

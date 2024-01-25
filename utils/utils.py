@@ -74,7 +74,7 @@ def get_optimizer(optimizer, method, lr=6e-2, batch_size=512):
         optim_params["weight_decay"] = 1.0e-6
 
     elif method == "BarlowTwins":
-        optim_params["lr"] = 0.3 * batch_size / 256
+        optim_params["lr"] = 0.3 * batch_size / 512
         optim_params["weight_decay"] = 1.0e-4
 
     if optimizer == "SGD":

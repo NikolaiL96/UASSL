@@ -238,7 +238,7 @@ class SSL_Trainer(object):
                 f'[{self.dist_std_hist_stats["mean"][-1]:0.2f}, {self.dist_std_hist_stats["min"][-1]:0.2f}, '
                 f'{self.dist_std_hist_stats["max"][-1]:0.2f}]')
 
-            if (epoch + 1) % 3 == 0:
+            if (epoch + 1) % 6 == 0:
                 recall, auroc, knn = self.evaluate()
 
                 if self.environment != "gpu-test":
