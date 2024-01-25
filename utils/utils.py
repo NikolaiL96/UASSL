@@ -85,8 +85,8 @@ def get_optimizer(optimizer, method, lr=6e-2, batch_size=512):
 
 
 def get_train_params(method, optimizer, epochs, reduced_lr, batch_size, lr=6e-2):
+    eta = 1.0e-6
     if method == "SimCLR":
-        eta = 1.0e-6
         warmup = 0
     else:
         warmup = 10
