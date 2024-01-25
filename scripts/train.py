@@ -34,6 +34,7 @@ def main(
         optim_params,
         clip,
         clip_type,
+        eta,
         train_params,
         eval_params,
         dataset,
@@ -71,7 +72,8 @@ def main(
                                   fine_tune=fine_tune, distribution=distribution_type, train_data=dataset, clip=clip,
                                   clip_type=clip_type)
 
-    scheduler_params = {"T_max": (train_params["num_epochs"] - train_params["warmup_epochs"]) * len(ssl_data.train_dl)}
+    scheduler_params = {"T_max": (train_params["num_epochs"] - train_params["warmup_epochs"]) * len(ssl_data.train_dl),
+                        "eta_min": eta}
 
     # Train
-    cifar10_trainer.train(**train_params, optim_params=optim_params, scheduler_params=scheduler_params)
+    cifar10_trainer.train(**train_params, scheduler_params=scheduler_params)

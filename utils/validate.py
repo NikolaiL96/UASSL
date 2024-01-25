@@ -231,7 +231,7 @@ class Validate:
         if self.distribution not in ["sphere", "normal"]:
             unc, unc_c = 1 / unc, 1 / unc_c
 
-        p_cropped = (unc < unc_c).float().mean()
+        p_cropped = (unc > unc_c).float().mean()
         cor_cropped = spearmanr(-unc_c.cpu().numpy(), crop.cpu().numpy())[0]
 
         return p_cropped, cor_cropped

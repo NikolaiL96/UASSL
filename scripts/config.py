@@ -31,6 +31,7 @@ def my_config():
     dataset = 'cifar10'
     network = 'resnet18'
     optimizer = "SGD"
+    eta = 0
     optim_params = None
     clip = 0.
     clip_type = "Norm"

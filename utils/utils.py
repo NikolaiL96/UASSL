@@ -11,6 +11,10 @@ import requests
 import io
 from pathlib import Path
 
+from scripts.lamp import Lamb
+from torch.optim import SGD
+from torch.optim.lr_scheduler import CosineAnnealingLR
+
 from distributions import powerspherical as ps
 
 def str2bool(v):
@@ -27,11 +31,11 @@ def get_projector_settings(method, projector, network, projector_out=None):
     p_dim = 512 if network == "resnet18" else 2048
 
     if (projector is True) and (projector_out is None):
-        return (p_dim, p_dim, 2048) if method == "BarlowTwins" else (p_dim, p_dim, 256)
+        return (2048, 2048, 2048) if method == "BarlowTwins" else (p_dim, p_dim, 128)
 
     # We only want to have a custom projector out-dimension for BarlowTwins
     elif (projector is True) and (projector_out is not None):
-        return (p_dim, p_dim, projector_out) if method == "BarlowTwins" else (p_dim, p_dim, 256)
+        return (2048, 2048, projector_out) if method == "BarlowTwins" else (p_dim, p_dim, 128)
 
     else:
         return None
@@ -45,12 +49,41 @@ def get_data_root_and_path(cluster, run_final):
         path = "./saved_runs/"
     return data_root, path
 
-def get_optimizer(optimizer, lr):
-    if optimizer == "SGD":
+def get_optimizer(optimizer, method, lr=6e-2, batch_size=512):
+    if method == "SimCLR":
+        lr = 0.3 * batch_size / 256
+        optim_params = {"lr": lr, "momentum": 0.9, "weight_decay": 1.0e-6}
+
+    elif method == "BarlowTwins":
+        lr = 0.3 * batch_size / 256
         optim_params = {"lr": lr, "momentum": 0.9, "weight_decay": 5e-4}
-    if optimizer == "Lamb":
-        optim_params = {"lr": lr, "max_grad_norm": 10., "weight_decay": 5e-4}
+
+    if optimizer == "SGD":
+        optim_params["momentum"] = 0.9
+    elif optimizer == "Lamb":
+        optim_params["max_grad_norm"] = 10
     return optim_params
+
+def get_train_params(method, optimizer, epochs, reduced_lr, batch_size, lr=6e-2):
+    if method == "SimCLR":
+        eta = 1.0e-6
+        warmup = 0
+    else:
+        eta = 0
+        warmup = 10
+
+    optim_params = get_optimizer(optimizer=optimizer, method=method, batch_size=batch_size, lr=lr)
+
+    return {
+        "num_epochs": int(epochs),
+        "optimizer": SGD if optimizer == "SGD" else Lamb,
+        "scheduler": CosineAnnealingLR,
+        "warmup_epochs": int(warmup),
+        "iter_scheduler": True,
+        "evaluate_at": [10, 25, 50, 75, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 650, 700, 750, 800],
+        "reduced_lr": reduced_lr,
+        "optim_params": optim_params,
+    }, eta
 
 
 def check_existing_model(save_root, device, ask_user=False):

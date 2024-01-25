@@ -5,8 +5,7 @@ import argparse
 import sys
 import datetime
 
-from utils.utils import get_optimizer, get_projector_settings, get_data_root_and_path, str2bool
-
+from utils.utils import get_projector_settings, get_data_root_and_path, str2bool, get_train_params
 
 if __name__ == "__main__":
     sys.path.append("")
@@ -41,6 +40,8 @@ if __name__ == "__main__":
 
     data_root, path = get_data_root_and_path(args.cluster, args.run_final)
     projector = get_projector_settings(args.method, args.projector, args.network, args.projector_out)
+    train_params, eta = get_train_params(args.method, args.optimizer, args.epochs, args.reduced_lr, args.batch_size,
+                                         args.learning_rate)
 
     if args.method == "SimCLR":
         method_params = {"projector_hidden": projector, "loss": args.loss, "lambda_reg": args.lambda_reg,
@@ -68,12 +69,13 @@ if __name__ == "__main__":
                   "method": args.method,
                   "dataset": args.dataset,
                   "optimizer": args.optimizer,
-                  "optim_params": get_optimizer(args.optimizer, args.learning_rate),
                   "clip": args.clip,
                   "clip_type": args.clip_type,
                   "reduced_lr": args.reduced_lr,
                   "epochs": args.epochs,
                   "warmup": args.warmup,
+                  "eta": eta,
+                  "train_params": train_params,
                   "batch_size": args.batch_size,
                   "method_params": method_params,
                   "distribution_params": {"type": args.distribution},
