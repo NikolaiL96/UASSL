@@ -42,15 +42,16 @@ def str2bool(v):
         raise TypeError('Boolean value expected.')
 
 
-def get_projector_settings(method, projector, network, projector_out=None):
-    p_dim = 512 if network == "resnet18" else 2048
+def get_projector_settings(method, projector, network, projector_out=None, projector_hidden=None):
+    if projector_hidden is None:
+        projector_hidden = 512 if network == "resnet18" else 2048
 
     if (projector is True) and (projector_out is None):
-        return (2048, 2048, 2048) if method == "BarlowTwins" else (p_dim, p_dim, 128)
+        return (2048, 2048, 2048) if method == "BarlowTwins" else (projector_hidden, projector_hidden, 128)
 
     # We only want to have a custom projector out-dimension for BarlowTwins
     elif (projector is True) and (projector_out is not None):
-        return (2048, 2048, projector_out) if method == "BarlowTwins" else (p_dim, p_dim, 128)
+        return (2048, 2048, projector_out) if method == "BarlowTwins" else (projector_hidden, projector_hidden, 128)
 
     else:
         return None
@@ -76,6 +77,8 @@ def get_optimizer(optimizer, method, lr=6e-2, batch_size=512):
     elif method == "BarlowTwins":
         optim_params["lr"] = 0.3 * batch_size / 512
         optim_params["weight_decay"] = 1.0e-4
+    else:
+        optim_params["lr"] = lr
 
     if optimizer == "SGD":
         optim_params["momentum"] = 0.9

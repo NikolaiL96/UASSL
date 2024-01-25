@@ -26,6 +26,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", "-bs", default=64, type=int)
     parser.add_argument("--network", "-n", default="resnet18", type=str)
     parser.add_argument("--projector", "-pr", default=True, type=str2bool)
+    parser.add_argument("--projector_hidden", default=None, type=int)
     parser.add_argument("--projector_out", default=None, type=int)
     parser.add_argument("--n_mc", default=16, type=int)
     parser.add_argument("--fine_tuned", default=False, type=str2bool)
@@ -41,7 +42,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     data_root, path = get_data_root_and_path(args.cluster, args.run_final)
-    projector = get_projector_settings(args.method, args.projector, args.network, args.projector_out)
+    projector = get_projector_settings(args.method, args.projector, args.network, args.projector_out,
+                                       args.projector_hidden)
     train_params, eta = get_train_params(args.method, args.optimizer, args.epochs, args.reduced_lr, args.batch_size,
                                          args.learning_rate)
 
