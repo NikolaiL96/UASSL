@@ -10,7 +10,8 @@ from utils import check_existing_model, Validate, Linear_Protocoler
 from .utils import grad_clip_hook_, get_params_
 from torch.cuda.amp import autocast, GradScaler
 
-logger = logging.basicConfig(level=logging.DEBUG, format='%(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(levelname)s - %(message)s')
+logger = logging.getLogger()
 logger.debug("Logger in SSL-trainer.")
 
 
