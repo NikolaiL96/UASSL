@@ -22,8 +22,8 @@ class KappaNet(nn.Module):
         )
 
     def forward(self, x):
-        kappa = self.kappa_net(x)
-        return kappa
+        return self.kappa_net(x)
+
 
 
 class ProbabilisticLayer(nn.Module):
@@ -37,48 +37,47 @@ class ProbabilisticLayer(nn.Module):
         self.in_features = in_features
         self.distribution = distribution
 
-        if distribution in ["powerspherical", "normal", "sphere"]:
+        if distribution in ["powerspherical", "normal", "normalSingleScale", "sphere", "vonMisesFisher"]:
             self.layer = nn.Linear(in_features, in_features, bias=use_bias)
-        elif distribution in ["sphereNoFC"]:
+        elif distribution in ["sphereNoFC", "powersphericalNoFC", "normalSingleScaleNoFC", "normalNoFC",
+                              "vonMisesFisherNoFC"]:
             self.layer = nn.Identity()
 
-    def forward(self, x, unc=None):
+    def forward(self, x, unc):
         mean = self.layer(x)
 
-        #const = torch.pow(torch.tensor(self.in_features).to(mean.device), 1 / 2.)
-        const = torch.linalg.norm(mean, dim=1)
+        if self.distribution in ["sphere", "sphereNoFC"]:
+            norm_mean = torch.linalg.norm(mean, dim=1, keepdim=True)
+            return pointdistribution.PointDistribution(loc=mean / norm_mean, scale=norm_mean)
+
+        const = torch.pow(torch.tensor(self.in_features).to(mean.device), 1 / 2.)
         kappa = nn.functional.softplus(unc.squeeze())
         kappa = const * kappa + self.eps
 
-        if self.distribution == "powerspherical":
+        if "powerspherical" in self.distribution:
             mean = nn.functional.normalize(mean, dim=1)
             return powerspherical.PowerSpherical(mean, kappa)
 
-        if self.distribution == "vonMisesFisher":
+        if "vonMisesFisher" in self.distribution:
             mean = nn.functional.normalize(mean, dim=1)
             return vonmisesfisher.VonMisesFisher(mean, kappa)
 
-        if self.distribution == "normal":
+        if "normal" in self.distribution:
             if kappa.dim() == 1:
-                kappa = kappa.unsqueeze(1).repeat(1, self.in_features)
+                kappa = kappa.unsqueeze(1).expand(-1, self.in_features)
             return normaldistribution.Normal(mean, kappa)
 
         if self.distribution == "normalSingleScale":
             if kappa.dim() == 1:
-                kappa = kappa.unsqueeze(1).repeat(1, self.in_features)
+                kappa = kappa.unsqueeze(1).expand(-1, self.in_features)
             return normaldistribution.Normal(mean, kappa)
-
-        if self.distribution == "sphere" or self.distribution == "sphereNoFC":
-            norm_mean = torch.linalg.norm(mean, dim=1, keepdim=True)
-            return pointdistribution.PointDistribution(loc=mean / norm_mean, scale=norm_mean)
 
         else:
             raise Exception("Distribution not implemented")
 
 
 class UncertaintyNet(nn.Module):
-    def __init__(self, in_channels, distribution_type, network: str = "resnet50", checkpoint_path=None,
-                 eps: float = 1e-4):
+    def __init__(self, in_channels, distribution_type, checkpoint_path=None, eps: float = 1e-4):
         super().__init__()
 
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -86,16 +85,20 @@ class UncertaintyNet(nn.Module):
         self.checkpoint_path = checkpoint_path
         self.eps = eps
         self.in_channels = in_channels
-        self.network = network
         self.name = "UncertaintyNet"
 
         # Construct mean_net and kappa_net models
-        self.model = self._build_model()
+        self.mean_model = self._build_model()
         rep_dim = self.model.fc.in_features
 
-        self.kappa_model = KappaNet(rep_dim=rep_dim)
+        # No need to train a kappa model for non-probabilistic baseline.
+        if distribution_type not in ["sphere", "sphereNoFC"]:
+            self.kappa_model = KappaNet(rep_dim=rep_dim)
+        else:
+            self.kappa_model = nn.Identity()
+
         self.fc = ProbabilisticLayer(distribution_type, rep_dim)
-        self.model.fc = nn.Identity()
+        self.mean_model.fc = nn.Identity()
 
         # Load and initialize pre-trained model parameters
         if checkpoint_path is not None:
@@ -105,22 +108,19 @@ class UncertaintyNet(nn.Module):
         # Load pre-trained model for the mean_ and kappa_net
         checkpoint = torch.load(self.checkpoint_path, map_location=self.device)
         params, self.projector_params = _get_state_dict(checkpoint["model"])
-        msg = self.model.load_state_dict(params, strict=False)
+        msg = self.mean_model.load_state_dict(params, strict=False)
         # msg = self.kappa_model.load_state_dict(params, strict=False)
 
     def _build_model(self):
-        if self.network == "resnet18":
-            resnet = resnet18(zero_init_residual=True)
-        elif self.network == "resnet50":
-            resnet = resnet50(zero_init_residual=True)
+        resnet = resnet18(zero_init_residual=True)
 
         resnet.conv1 = nn.Conv2d(self.in_channels, 64, 3, 1, 1, bias=False)
         resnet.maxpool = nn.Identity()
         return resnet
 
     def forward(self, x):
-        feats = self.model(x)
+        feats = self.mean_model(x)
         unc = self.kappa_model(feats.detach())
 
-        dist = self.fc(feats, unc)
-        return dist
+        return self.fc(feats, unc)
+

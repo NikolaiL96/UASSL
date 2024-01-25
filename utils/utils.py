@@ -88,13 +88,13 @@ def get_optimizer(optimizer, method, lr=6e-2, batch_size=512):
 
 
 def get_train_params(method, optimizer, epochs, reduced_lr, batch_size, lr=6e-2, warmup=0):
-
+    eta = 0
     if method == "SimCLR":
         warmup = 0
         eta = 1.0e-6
     elif method == "BarlowTwins":
         warmup = 10
-        eta = 1.0e-6
+        #eta = 1.0e-6
 
     optim_params = get_optimizer(optimizer=optimizer, method=method, batch_size=batch_size, lr=lr)
 
