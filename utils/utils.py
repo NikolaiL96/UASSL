@@ -44,7 +44,7 @@ def str2bool(v):
 
 def get_projector_settings(method, projector, network, projector_out=None, projector_hidden=None):
     if projector_hidden is None:
-        projector_hidden = 512 if network == "resnet18" else 2048
+        projector_hidden = 2048 if network == "resnet18" else 2048
 
     if (projector is True) and (projector_out is None):
         return (2048, 2048, 2048) if method == "BarlowTwins" else (projector_hidden, projector_hidden, 128)
@@ -75,7 +75,7 @@ def get_optimizer(optimizer, method, lr=6e-2, batch_size=512):
         optim_params["weight_decay"] = 1.0e-6
 
     elif method == "BarlowTwins":
-        optim_params["lr"] = 0.2 * batch_size / 512
+        optim_params["lr"] = 0.3 * batch_size / 512
         optim_params["weight_decay"] = 5e-4
     else:
         optim_params["lr"] = lr

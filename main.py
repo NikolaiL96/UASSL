@@ -23,7 +23,7 @@ if __name__ == "__main__":
     parser.add_argument("--loss", "-l", default="MCNT-Xentpairwisemin")
     parser.add_argument("--lambda_reg", "-lam", default=0.001, type=float)
     parser.add_argument("--temperature", "-t", default=0.01, type=float)
-    parser.add_argument("--batch_size", "-bs", default=64, type=int)
+    parser.add_argument("--batch_size", "-bs", default=512, type=int)
     parser.add_argument("--network", "-n", default="resnet18", type=str)
     parser.add_argument("--projector", "-pr", default=True, type=str2bool)
     parser.add_argument("--projector_hidden", default=None, type=int)
