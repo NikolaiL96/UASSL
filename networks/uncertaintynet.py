@@ -89,7 +89,7 @@ class UncertaintyNet(nn.Module):
 
         # Construct mean_net and kappa_net models
         self.mean_model = self._build_model()
-        rep_dim = self.model.fc.in_features
+        rep_dim = self.mean_model.fc.in_features
 
         # No need to train a kappa model for non-probabilistic baseline.
         if distribution_type not in ["sphere", "sphereNoFC"]:
