@@ -79,11 +79,7 @@ class SimCLR(nn.Module):
         dist1 = self.backbone_net(x1)
         dist2 = self.backbone_net(x2)
 
-        if epoch < self.loc_warmup:
-            var_reg = torch.zeros(1, device=self.device)
-        else:
-            var_reg = self.regularizer((dist1, dist2))
-
+        var_reg = self.regularizer((dist1, dist2))
         ssl_loss = self.compute_ssl_loss(dist1, dist2, epoch)
         unc_loss = self.compute_uncertainty_loss(dist1, dist2)
 

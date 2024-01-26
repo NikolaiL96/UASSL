@@ -16,7 +16,7 @@ if __name__ == "__main__":
     parser.add_argument("--method", "-m", default="SimCLR")
     parser.add_argument("--epochs", "-e", default=1000, type=int)
     parser.add_argument("--warmup", "-w", default=10, type=int)
-    parser.add_argument("--loc_warmup", default=0, type=int)
+    parser.add_argument("--loc_warmup", default=5, type=int)
     parser.add_argument("--distribution", "-dist", default="powerspherical")
     parser.add_argument("--dataset", "-d", default="cifar10")
     parser.add_argument("--learning_rate", "-lr", default=6e-2, type=float)
