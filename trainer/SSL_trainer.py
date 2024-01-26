@@ -150,7 +150,7 @@ class SSL_Trainer(object):
                 current_timestep = time.time()
         if epoch_id == 0:
             logger.info(f"Loading time {loading_time:.1f}s, Forward Time {forward_time:.1f}s, Backward Time "
-                             f"{backward_time:.1f}s")
+                        f"{backward_time:.1f}s")
 
     def train(self, num_epochs, optimizer, scheduler, optim_params, scheduler_params, eval_params, evaluate_at,
               warmup_epochs=10, iter_scheduler=True, reduced_lr=False):
@@ -230,7 +230,7 @@ class SSL_Trainer(object):
 
             if self.device.type == 'cuda':
                 logger.debug(f'GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
-                                  f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB\n')
+                             f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB\n')
 
             logger.info(
                 f'SSL Loss: {self.ssl_loss_hist[-1]:0.4f}, Regularisation Loss: {self.kl_loss_hist[-1]:0.5f}, '
@@ -247,7 +247,7 @@ class SSL_Trainer(object):
                     self.tb_logger.add_scalar('kappa/knn', knn, epoch)
 
                 logger.info(f"Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc:0.3f}, Recall: {recall:0.3f}, "
-                                 f"knn: {knn:0.1f}\n")
+                            f"knn: {knn:0.1f}\n")
 
             if (epoch + 1) in evaluate_at:
                 self.save_model(self.save_root, epoch + 1)
