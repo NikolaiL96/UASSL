@@ -104,7 +104,7 @@ def get_train_params(method, optimizer, epochs, reduced_lr, batch_size, lr=6e-2,
                "scheduler": CosineAnnealingLR,
                "warmup_epochs": int(warmup),
                "iter_scheduler": True,
-               "evaluate_at": [10, 25, 50, 75] + list(range(100, int(epochs) + 1, 50)),
+               "evaluate_at": list(range(100, int(epochs) + 1, 250)) + [int(epochs)],
                "reduced_lr": reduced_lr,
                "optim_params": optim_params,
            }, eta
