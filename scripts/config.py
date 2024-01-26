@@ -63,7 +63,7 @@ def my_config():
         "scheduler": CosineAnnealingLR,
         "warmup_epochs": int(warmup),
         "iter_scheduler": True,
-        "evaluate_at": [10, 25, 50, 75, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 650, 700, 750, 800],
+        "evaluate_at": [10, 25, 50, 75] + list(range(100, int(epochs) + 1, 50)),
         "reduced_lr": reduced_lr,
     }
 
@@ -72,6 +72,7 @@ def my_config():
     dl_kwargs = {"batch_size": batch_size, "shuffle": True,
                  "num_workers": min(os.cpu_count(), 8)}
 
-    eval_params = {"lr": 1e-2, "num_epochs": 100, "milestones": [12, 20, 50]}
+    eval_optim_params = {"lr": 0.2, "momentum": 0.9, "weight_decay": 0.}
+    eval_params = {"optim_params": eval_optim_params, "num_epochs": 100}
     distribution_params = {"type": "powerspherical"}
 

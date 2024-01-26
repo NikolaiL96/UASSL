@@ -10,7 +10,7 @@ from utils import check_existing_model, Validate, Linear_Protocoler
 from .utils import grad_clip_hook_, get_params_
 from torch.cuda.amp import autocast, GradScaler
 
-logging.basicConfig(level=logging.DEBUG, format='%(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
 logger = logging.getLogger()
 logger.debug("Logger in SSL-trainer.")
 
@@ -59,10 +59,10 @@ class SSL_Trainer(object):
         # Define data
         self.data = ssl_data
 
-    def evaluate(self):
+    def evaluate(self, eval_params):
         # Linear protocol
-        evaluator = Linear_Protocoler(self.model.backbone_net, repre_dim=self.model.rep_dim,
-                                      variational=True, device=self.device)
+        evaluator = Linear_Protocoler(self.model.backbone_net, repre_dim=self.model.rep_dim, device=self.device,
+                                      eval_params=eval_params)
         # knn accuracy
         knn = evaluator.knn_accuracy(self.data.train_eval_dl, self.data.test_dl)
 
@@ -152,8 +152,8 @@ class SSL_Trainer(object):
             logger.info(f"Loading time {loading_time:.1f}s, Forward Time {forward_time:.1f}s, Backward Time "
                              f"{backward_time:.1f}s")
 
-    def train(self, num_epochs, optimizer, scheduler, optim_params, scheduler_params, warmup_epochs=10,
-              iter_scheduler=True, evaluate_at=[100, 200, 400], reduced_lr=False):
+    def train(self, num_epochs, optimizer, scheduler, optim_params, scheduler_params, eval_params, evaluate_at,
+              warmup_epochs=10, iter_scheduler=True, reduced_lr=False):
 
         # Check and Load existing model
         epoch_start, optim_state, sched_state = self.load_model(self.save_root, return_vals=True)
@@ -239,7 +239,7 @@ class SSL_Trainer(object):
                 f'{self.dist_std_hist_stats["max"][-1]:0.2f}]')
 
             if (epoch + 1) % 6 == 0:
-                recall, auroc, knn = self.evaluate()
+                recall, auroc, knn = self.evaluate(eval_params=eval_params)
 
                 if self.environment != "gpu-test":
                     self.tb_logger.add_scalar('kappa/AUROC', auroc, epoch)
@@ -257,7 +257,7 @@ class SSL_Trainer(object):
 
                 cor_corrupted, p_corrupted = validate.get_metrics()
                 cor_pearson, cor_spearman = validate.get_cor()
-                linear_acc_10 = validate.get_linear_probing()
+                linear_acc_10 = validate.get_linear_probing(eval_params=eval_params)
 
                 if self.environment != "gpu-test":
                     self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
@@ -278,7 +278,7 @@ class SSL_Trainer(object):
 
                 cor_corrupted, p_corrupted = validate.get_metrics()
                 cor_pearson, cor_spearman = validate.get_cor()
-                linear_acc_10 = validate.get_linear_probing()
+                linear_acc_10 = validate.get_linear_probing(eval_params=eval_params)
 
                 if self.environment != "gpu-test":
                     self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
@@ -289,7 +289,7 @@ class SSL_Trainer(object):
                     self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR10', linear_acc_10, epoch)
 
                 recall_cifar100, auroc_cifar100 = validate_low_shot.recall_auroc()
-                linear_acc_100 = validate_low_shot.get_linear_probing()
+                linear_acc_100 = validate_low_shot.get_linear_probing(eval_params=eval_params)
                 knn_cifar100 = validate_low_shot.knn_accuracy()
 
                 if self.environment != "gpu-test":

@@ -1,19 +1,18 @@
-from copy import deepcopy
-from typing import Optional
-import numpy as np
-
 import torch
 import torch.nn as nn
-import torch.optim as opt
+from torch.optim import SGD
+from torch.optim.lr_scheduler import CosineAnnealingLR
 import torch.nn.functional as F
+
 from torchmetrics.functional.classification import binary_auroc as auc
 from torch.cuda.amp import autocast, GradScaler
 
+
 class Linear_Protocoler(object):
-    def __init__(
-            self, encoder, device, repre_dim: int, variational: bool = True, exclusion_mode='none'):
+
+    def __init__(self, encoder, device, repre_dim: int, eval_params: dict):
+
         self.device = device
-        self.variational = variational
         self.use_amp = device.type == 'cuda'
         self.scaler = GradScaler(enabled=self.use_amp)
 
@@ -23,7 +22,7 @@ class Linear_Protocoler(object):
         self.repre_dim = repre_dim
         self.train_features = None
         self.train_labels = None
-        self.exclusion_mode = exclusion_mode
+        self.eval_params = eval_params
 
     @torch.no_grad()
     def recall_auroc(self, test_dl):
@@ -69,7 +68,7 @@ class Linear_Protocoler(object):
         return accuracy
 
     @torch.no_grad()
-    def _knn_extract_features_and_labels(self, train_dl, uncertaities=False):
+    def _knn_extract_features_and_labels(self, train_dl):
         # extract train
         train_features, train_labels = (), ()
 
@@ -88,15 +87,9 @@ class Linear_Protocoler(object):
         return train_features, train_labels
 
     @torch.no_grad()
-    def _knn_predict_with_given_features_and_labels(
-            self,
-            train_features,
-            train_labels,
-            test_dl,
-            knn_k: int = 200,
-            knn_t: float = 0.1,
-            num_classes=None
-    ):
+    def _knn_predict_with_given_features_and_labels(self, train_features, train_labels, test_dl, knn_k: int = 200,
+                                                    knn_t: float = 0.1, num_classes=None):
+
         if num_classes is None:
             num_classes = len(set(train_labels.detach().cpu().numpy().tolist()))
 
@@ -119,7 +112,11 @@ class Linear_Protocoler(object):
 
         return total_top1 / total_num * 100
 
-    def train(self, dataloader, num_epochs, lr, milestones=None):
+    def train(self, dataloader):
+        optim_params = self.eval_params["optim_params"]
+        num_epochs = self.eval_params["num_epochs"]
+        schedular_params = {"T_max": 100 * len(dataloader), "eta_min": 0.001}
+
         # get classes
         num_classes = len(dataloader.dataset.classes)
 
@@ -127,14 +124,13 @@ class Linear_Protocoler(object):
         self.classifier = nn.Linear(self.repre_dim, num_classes).to(self.device)
 
         # Define optimizer
-        optimizer = opt.Adam(self.classifier.parameters(), lr)
+        optimizer = SGD(self.classifier.parameters(), **optim_params)
         # Define loss
         ce_loss = nn.CrossEntropyLoss()
+
         # Define scheduler
-        if milestones:
-            scheduler = opt.lr_scheduler.MultiStepLR(optimizer, milestones)
-        else:
-            scheduler = None
+        scheduler = CosineAnnealingLR(optimizer, **schedular_params)
+
 
         # Train
         for epoch in range(num_epochs):
@@ -145,7 +141,8 @@ class Linear_Protocoler(object):
                     dist = self.encoder(x)
 
                 x = dist.loc
-                loss = ce_loss(self.classifier(x), y)
+                with autocast(enabled=self.use_amp):
+                    loss = ce_loss(self.classifier(x), y)
 
                 # backward
                 optimizer.zero_grad()
@@ -173,11 +170,13 @@ class Linear_Protocoler(object):
                 x, y = x.to(self.device), y.to(self.device)
                 # calculate outputs by running images through the network
                 with autocast(enabled=self.use_amp):
-                    x = self.encoder(x)
-                if self.variational:
-                    x = x.mean
+                    dist = self.encoder(x)
 
-                outputs = self.classifier(x)
+                loc = dist.loc
+
+                with autocast(enabled=self.use_amp):
+                    outputs = self.classifier(loc)
+
                 # the class with the highest energy is what we choose as prediction1
                 _, predicted = torch.max(outputs.data, 1)
 
@@ -203,17 +202,16 @@ class Linear_Protocoler(object):
                 x, y = x.to(self.device), y.to(self.device)
                 # calculate outputs by running images through the network
                 with autocast(enabled=self.use_amp):
-                    x = self.encoder(x)
-                assert (
-                    self.variational
-                ), "Linear uncertainty is only defined for variational models"
-                dis = x
+                    dist = self.encoder(x)
+
 
                 # Take M=20 monte Carlo samples
-                shape = dis.mean.shape
-                samples = dis.rsample(torch.Size([M])).reshape(
+                shape = dist.loc.shape
+                samples = dist.rsample(torch.Size([M])).reshape(
                     M * shape[0], shape[1])
-                outputs = self.classifier(samples).reshape(M, shape[0], -1)
+
+                with autocast(enabled=self.use_amp):
+                    outputs = self.classifier(samples).reshape(M, shape[0], -1)
 
                 # We take the mean value of the logits
                 out_logits = torch.mean(outputs, dim=0)

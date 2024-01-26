@@ -14,7 +14,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--cluster", "-c", default=False, type=str2bool)
     parser.add_argument("--method", "-m", default="SimCLR")
-    parser.add_argument("--epochs", "-e", default=800, type=int)
+    parser.add_argument("--epochs", "-e", default=1000, type=int)
     parser.add_argument("--warmup", "-w", default=10, type=int)
     parser.add_argument("--loc_warmup", default=0, type=int)
     parser.add_argument("--distribution", "-dist", default="powerspherical")

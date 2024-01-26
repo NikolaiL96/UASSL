@@ -95,16 +95,15 @@ class Validate:
             print(e)
             return 0., 0.
 
-    def get_linear_probing(self, epochs=10, lr=1e-2, oob_data=False):
+    def get_linear_probing(self, eval_params, oob_data=False):
         if not oob_data:
             test_loader = self.data.test_dl
         else:
             test_loader = self.data_test.test_dl
-        linear_evaluator = Linear_Protocoler(self.model.backbone_net.eval(),
-                                             repre_dim=self.model.rep_dim,
-                                             variational=True,
-                                             device=self.device)
-        linear_evaluator.train(self.data.train_eval_dl, epochs, lr, None)
+        linear_evaluator = Linear_Protocoler(self.model.backbone_net.eval(), repre_dim=self.model.rep_dim,
+                                             device=self.device, eval_params=eval_params)
+
+        linear_evaluator.train(self.data.train_eval_dl)
         return linear_evaluator.linear_accuracy(test_loader)
 
     @torch.no_grad()
