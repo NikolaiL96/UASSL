@@ -316,6 +316,10 @@ class Validate:
         plt.style.use('default')
         plt.scatter(feats_tsne[:, 0], feats_tsne[:, 1], c=labels, s=kappa, alpha=0.3)
 
+        # Remove axis ticks and labels.
+        plt.xticks([])
+        plt.yticks([])
+
         id = os.getenv('SLURM_JOB_ID')
         name = f"t-SNE_{data}_Epoch_{self.epoch}"
         path = f"/home/lorenzni/imgs/{id}"

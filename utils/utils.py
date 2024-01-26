@@ -98,16 +98,15 @@ def get_train_params(method, optimizer, epochs, reduced_lr, batch_size, lr=6e-2,
 
     optim_params = get_optimizer(optimizer=optimizer, method=method, batch_size=batch_size, lr=lr)
 
-    return {
-               "num_epochs": int(epochs),
-               "optimizer": SGD if optimizer == "SGD" else Lamb,
-               "scheduler": CosineAnnealingLR,
-               "warmup_epochs": int(warmup),
-               "iter_scheduler": True,
-               "evaluate_at": list(range(100, int(epochs) + 1, 250)) + [int(epochs)],
-               "reduced_lr": reduced_lr,
-               "optim_params": optim_params,
-           }, eta
+    return {"num_epochs": int(epochs),
+            "optimizer": SGD if optimizer == "SGD" else Lamb,
+            "scheduler": CosineAnnealingLR,
+            "warmup_epochs": int(warmup),
+            "iter_scheduler": True,
+            "evaluate_at": list(range(100, int(epochs) + 1, 250)) + [int(epochs)],
+            "reduced_lr": reduced_lr,
+            "optim_params": optim_params,
+            }, eta
 
 
 def check_existing_model(save_root, device, ask_user=False):

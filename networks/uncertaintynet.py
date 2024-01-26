@@ -105,6 +105,7 @@ class UncertaintyNet(nn.Module):
             self._load_params()
 
     def _load_params(self):
+        # TODO write checkpoint function that automatically loads pretrained baseline if fine tune flag is set.
         # Load pre-trained model for the mean_ and kappa_net
         checkpoint = torch.load(self.checkpoint_path, map_location=self.device)
         params, self.projector_params = _get_state_dict(checkpoint["model"])

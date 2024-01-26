@@ -75,6 +75,7 @@ class SSL_Trainer(object):
         self.model.train()
         self.model.requires_grad_(True)
 
+        # TODO think if can be deleted
         if "Hook" in self.clip_type:
             grad_clip_hook_(self.model.backbone_net, clip=self.clip, clip_type=self.clip_type)
 
@@ -167,6 +168,7 @@ class SSL_Trainer(object):
         self.optimizer = optimizer(params, **optim_params)
 
         # Define Scheduler
+        # TODO cleanup _ider_schedular
         if warmup_epochs and epoch_start < warmup_epochs:
             self.scheduler = lr_scheduler.LambdaLR(self.optimizer,
                                                    lambda it: (it + 1) / (warmup_epochs * self._train_len))
@@ -192,11 +194,13 @@ class SSL_Trainer(object):
 
             self.train_epoch(epoch)
 
+            # TODO think if can be deleted
             if self.scheduler and not self._iter_scheduler:
                 # Scheduler only every epoch
                 self.scheduler.step()
 
             # Switch to new schedule after warmup period
+            # TODO clean up if statement
             if warmup_epochs and epoch + 1 == warmup_epochs:
                 if scheduler:
                     self.scheduler = scheduler(self.optimizer, **scheduler_params)
@@ -210,6 +214,7 @@ class SSL_Trainer(object):
             self.kl_loss_hist.append(self._epoch_kl_loss.item() / self._train_len)
             self.unc_loss_hist.append(self._epoch_unc_loss.item() / self._train_len)
 
+            # TODO function for logging and saving results
             self.dist_std_hist_stats['min'].append(self._dist_std_stats['min'])
             self.dist_std_hist_stats['max'].append(self._dist_std_stats['max'])
             self.dist_std_hist_stats['mean'].append(self._dist_std_stats['mean'].item() / self._train_len)
@@ -226,11 +231,12 @@ class SSL_Trainer(object):
                 self.tb_logger.add_scalar('kappa/kappa_min', self.dist_std_hist_stats["min"][-1], epoch)
                 self.tb_logger.add_scalar('kappa/kappa_max', self.dist_std_hist_stats["max"][-1], epoch)
 
+            # TODO think if cuda synchronisation should be used
             logger.info(f'Epoch: {epoch}, Time epoch: {time.time() - start_time:0.1f}')
 
             if self.device.type == 'cuda':
-                logger.debug(f'GPU Reserved {torch.cuda.memory_reserved(0) // 1000000}MB,'
-                             f' Allocated {torch.cuda.memory_allocated(0) // 1000000}MB\n')
+                logger.debug(f'GPU Reserved {torch.cuda.memory_reserved(0) // 1e6}MB,'
+                             f' Allocated {torch.cuda.memory_allocated(0) // 1e6}MB')
 
             logger.info(
                 f'SSL Loss: {self.ssl_loss_hist[-1]:0.4f}, Regularisation Loss: {self.kl_loss_hist[-1]:0.5f}, '
@@ -238,6 +244,7 @@ class SSL_Trainer(object):
                 f'[{self.dist_std_hist_stats["mean"][-1]:0.2f}, {self.dist_std_hist_stats["min"][-1]:0.2f}, '
                 f'{self.dist_std_hist_stats["max"][-1]:0.2f}]')
 
+            # TODO validation time
             if (epoch + 1) % 6 == 0:
                 recall, auroc, knn = self.evaluate(eval_params=eval_params)
 
@@ -253,7 +260,7 @@ class SSL_Trainer(object):
                 self.save_model(self.save_root, epoch + 1)
 
                 validate = Validate(data=self.ssl_data, device=self.device, distribution=self.distribution,
-                                    model=self.model, epoch=epoch, last_epoch=True, low_shot=False, plot_tsne=True)
+                                    model=self.model, epoch=epoch, last_epoch=False, low_shot=False, plot_tsne=False)
 
                 cor_corrupted, p_corrupted = validate.get_metrics()
                 cor_pearson, cor_spearman = validate.get_cor()
