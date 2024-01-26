@@ -289,24 +289,25 @@ class Validate:
         return Recall, Auroc
 
     @torch.no_grad()
-    def vis_t_SNE(self, feats, labels, kappa, data=None):
+    def vis_t_SNE(self, feats, labels, unc, data=None):
 
         if data == "cifar10":
-            idx = torch.randperm(kappa.shape[0])[:4000]
+            idx = torch.randperm(unc.shape[0])[:4000]
 
         else:
             id = torch.tensor(np.random.choice(np.unique(labels.cpu().numpy()), 10), device=self.device)
             idx = torch.sum((labels[:, None] == id) * id[None], dim=-1).nonzero().squeeze()[:4000]
 
-        feats, labels, kappa = feats[idx], labels[idx], kappa[idx]
+        feats, labels, unc = feats[idx], labels[idx], unc[idx]
 
-        kappa_min = kappa.min()
-        kappa_max = kappa.max()
+        unc_min = unc.min()
+        unc_max = unc.max()
 
-        kappa = torch.exp((kappa - kappa_min) / (kappa_max - kappa_min) * 6)
-        kappa = torch.clamp(kappa, max=500)
+        # Exponential weighting of higher uncertainties for better visualization
+        unc = torch.exp((unc - unc_min) / (unc_max - unc_min) * 6)
+        unc = torch.clamp(unc, max=500)  #
 
-        feats, labels, kappa = feats.cpu(), labels.cpu(), kappa.cpu()
+        feats, labels, unc = feats.cpu(), labels.cpu(), unc.cpu()
 
         # Perform t-SNE
         feats_tsne = TSNE(n_components=2, learning_rate='auto', init='random', perplexity=50).fit_transform(feats)
@@ -314,7 +315,7 @@ class Validate:
         matplotlib.use('PDF')
         fig = plt.figure()
         plt.style.use('default')
-        plt.scatter(feats_tsne[:, 0], feats_tsne[:, 1], c=labels, s=kappa, alpha=0.3)
+        plt.scatter(feats_tsne[:, 0], feats_tsne[:, 1], c=labels, s=unc, alpha=0.3)
 
         # Remove axis ticks and labels.
         plt.xticks([])

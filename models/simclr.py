@@ -79,8 +79,12 @@ class SimCLR(nn.Module):
         dist1 = self.backbone_net(x1)
         dist2 = self.backbone_net(x2)
 
+        if epoch < self.loc_warmup:
+            var_reg = torch.zeros(1, device=self.device)
+        else:
+            var_reg = self.regularizer((dist1, dist2))
+
         ssl_loss = self.compute_ssl_loss(dist1, dist2, epoch)
-        var_reg = self.regularizer((dist1, dist2))
         unc_loss = self.compute_uncertainty_loss(dist1, dist2)
 
         return ssl_loss, var_reg, unc_loss, (dist1, dist2)
@@ -89,7 +93,7 @@ class SimCLR(nn.Module):
         n_batch = dist1.loc.shape[0]
         if self.loss == "NT-Xent":
 
-            # Use distribution's location for the first 5 epoch
+            # Use distribution's location for the first epochs
             if epoch < self.loc_warmup:
                 z1, z2 = dist1.loc, dist2.loc
             else:
