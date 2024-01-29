@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
-import torch.distributions as dist
 
 from distributions import (
     pointdistribution,
     powerspherical,
     vonmisesfisher,
+    normaldistribution,
 )
 
 
@@ -23,7 +23,7 @@ class Probabilistic_Layer(nn.Module):
             out_features = in_features + 1
         elif distribution == "normal":
             out_features = in_features * 2
-        elif distribution in ["vonMisesFisherNode", "normalSingleScale"]:
+        elif distribution in ["vonMisesFisher", "normalSingleScale"]:
             out_features = in_features + 1
         elif distribution in ["sphere", "sphereNoFC"]:
             out_features = in_features
@@ -43,7 +43,15 @@ class Probabilistic_Layer(nn.Module):
             mean, logvar = torch.chunk(self.layer(x), 2, dim=1)
             std = nn.functional.softplus(logvar) + self.eps
 
-            out_dist = dist.Normal(mean, std)
+            out_dist = normaldistribution.Normal(mean, std)
+            return out_dist
+
+        if self.distribution == "normalSingleScale":
+            feats = self.layer(x)
+            mean = nn.functional.normalize(feats[:, :self.dim], dim=1)
+            std = nn.functional.softplus(feats[:, -1]) + self.eps
+
+            out_dist = normaldistribution.Normal(mean, std.unsqueeze(1).expand(-1, mean.shape[1]))
             return out_dist
 
         if self.distribution in ["sphere", "sphereNoFC"]:

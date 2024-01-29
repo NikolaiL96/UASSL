@@ -1,4 +1,5 @@
 from typing import Union
+import warnings
 
 import torch
 import torch.nn as nn
@@ -54,8 +55,12 @@ class SimCLR(nn.Module):
 
     def initialize_projector(self, projector_hidden):
         if projector_hidden:
-            if self.loss == "KL_Loss" and self.distribution_type == "normal":
+            if (self.loss == "KL_Loss") and (self.distribution_type == "normal"):
                 self.projector = MLP_variational(self.rep_dim, projector_hidden, bias=True)
+            elif (self.loss == "KL_Loss") and (self.distribution_type != "normal"):
+                self.projector = nn.Identity()
+                warnings.warn("Projector hidden with KL Loss and no Normal distribution specified. No projection "
+                              "head will be used!")
             else:
                 self.projector = MLP(self.rep_dim, projector_hidden, bias=False)
             print(f"The projector has {projector_hidden} hidden units")
@@ -110,12 +115,14 @@ class SimCLR(nn.Module):
         if self.loss == "KL_Loss":
             if not self.projector_hidden:
                 return self.loss_fn(dist1, dist2)
-            elif self.projector and self.distribution_type == "normal":
+            elif self.projector_hidden and (self.distribution_type == "normal"):
                 pz1, pk1 = self.projector(dist1.loc, dist1.scale)
                 pz2, pk2 = self.projector(dist2.loc, dist2.scale)
                 return self.loss_fn(Normal(pz1, pk1), Normal(pz2, pk2))
             else:
-                raise TypeError("Please use the Probabilistic Projection head with Normal distribution.")
+                warnings.warn("Projector hidden with KL Loss and no Normal distribution specified. No projection "
+                              "head will be used!")
+                return self.loss_fn(dist1, dist2)
         else:
             raise TypeError("Please specify a correct loss.")
 

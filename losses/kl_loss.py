@@ -42,8 +42,8 @@ class KL_Loss(nn.Module):
     def kl_two_normals(self, mu1, mu2, var1, var2):
 
         if var1.dim() == 1:
-            var1 = var1.unsqueeze(1).expand(1, mu1.shape[1])
-            var2 = var2.unsqueeze(1).expand(1, mu1.shape[1])
+            var1 = var1.unsqueeze(1).expand(-1, mu1.shape[1])
+            var2 = var2.unsqueeze(1).expand(-1, mu1.shape[1])
 
         mu1, mu2 = mu1.unsqueeze(1), mu2.unsqueeze(0)
         logvar1, logvar2 = torch.log(var1).unsqueeze(1), torch.log(var2).unsqueeze(0)

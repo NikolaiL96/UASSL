@@ -134,8 +134,7 @@ class VonMisesFisher(torch.distributions.Distribution):
             return self.rsample(shape)
 
     def rsample(self, shape=torch.Size()):
-        shape = shape.squeeze()
-        shape = shape if isinstance(shape, torch.Size) else torch.Size([shape])
+        shape = shape if isinstance(shape, torch.Size) else torch.Size([shape[0]])
 
         w = (
             self.__sample_w3(shape=shape)
@@ -147,47 +146,44 @@ class VonMisesFisher(torch.distributions.Distribution):
             torch.distributions.Normal(0, 1)
                 .sample(shape + torch.Size(self.loc.shape))
                 .to(self.device)
-                .transpose(0, -1)[1:]  # TODO why do they delet a dimension here?
+                .transpose(0, -1)[1:]
         ).transpose(0, -1)
         v = v / v.norm(dim=-1, keepdim=True)
         w_ = torch.sqrt(torch.clamp(1 - (w ** 2), 1e-10))
-        # TODO why do they concat a dimension here, this leads to x with shape (batch_size, 2*features)
         x = torch.cat((w, w_ * v), -1)
-        # print(f"Debuging during VMF distribution: E1{self.__e1.shape} Loc {self.loc.shape} Scale {self.scale.shape}, w_ {w_.shape} x {x.shape}")
-        # TODO  The programm crashes here as x is multiplied to u of shape (batch_size, features)
         z = self.__householder_rotation(x)
 
         return z.type(self.dtype)
 
     def __sample_w3(self, shape):
-        shape = shape + torch.Size(self.scale.shape)
+        shape = shape + torch.Size(self.scale.unsqueeze(1).shape)
         u = torch.distributions.Uniform(0, 1).sample(shape).to(self.device)
         self.__w = (
                 1
                 + torch.stack(
-            [torch.log(u), torch.log(1 - u) - 2 * self.scale], dim=0
+            [torch.log(u), torch.log(1 - u) - 2 * self.scale.unsqueeze(1)], dim=0
         ).logsumexp(0)
-                / self.scale
+                / self.scale.unsqueeze(1)
         )
         return self.__w
 
     def __sample_w_rej(self, shape):
-        c = torch.sqrt((4 * (self.scale ** 2)) + (self.__m - 1) ** 2)
-        b_true = (-2 * self.scale + c) / (self.__m - 1)
+        c = torch.sqrt((4 * (self.scale.unsqueeze(1) ** 2)) + (self.__m - 1) ** 2)
+        b_true = (-2 * self.scale.unsqueeze(1) + c) / (self.__m - 1)
 
         # using Taylor approximation with a smooth swift from 10 < scale < 11
         # to avoid numerical errors for large scale
-        b_app = (self.__m - 1) / (4 * self.scale)
+        b_app = (self.__m - 1) / (4 * self.scale.unsqueeze(1))
         s = torch.min(
             torch.max(
                 torch.tensor([0.0], dtype=self.dtype, device=self.device),
-                self.scale - 10,
+                self.scale.unsqueeze(1) - 10,
             ),
             torch.tensor([1.0], dtype=self.dtype, device=self.device),
         )
         b = b_app * s + b_true * (1 - s)
 
-        a = (self.__m - 1 + 2 * self.scale + c) / 4
+        a = (self.__m - 1 + 2 * self.scale.unsqueeze(1) + c) / 4
         d = (4 * a * b) / (1 + b) - (self.__m - 1) * math.log(self.__m - 1)
 
         self.__b, (self.__e, self.__w) = b, self.__while_loop(b, a, d, shape, k=self.k)
@@ -206,7 +202,7 @@ class VonMisesFisher(torch.distributions.Distribution):
     def __while_loop(self, b, a, d, shape, k=20, eps=1e-20):
         #  matrix while loop: samples a matrix of [A, k] samples, to avoid looping all together
         b, a, d = [
-            e.repeat(*shape, *([1] * len(self.scale.shape))).reshape(-1, 1)
+            e.repeat(*shape, *([1] * len(self.scale.unsqueeze(1).shape))).reshape(-1, 1)
             for e in (b, a, d)
         ]
         w, e, bool_mask = (
@@ -216,7 +212,7 @@ class VonMisesFisher(torch.distributions.Distribution):
         )
 
         sample_shape = torch.Size([b.shape[0], k])
-        shape = shape + torch.Size(self.scale.shape)
+        shape = shape + torch.Size(self.scale.unsqueeze(1).shape)
 
         while bool_mask.sum() != 0:
             con1 = torch.tensor((self.__m - 1) / 2, dtype=torch.float64)

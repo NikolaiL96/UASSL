@@ -10,7 +10,7 @@ from torch.cuda.amp import autocast, GradScaler
 
 class Linear_Protocoler(object):
 
-    def __init__(self, encoder, device, repre_dim: int, eval_params: dict):
+    def __init__(self, encoder, device, distribution, repre_dim: int, eval_params: dict):
 
         self.device = device
         self.use_amp = device.type == 'cuda'
@@ -23,6 +23,7 @@ class Linear_Protocoler(object):
         self.train_features = None
         self.train_labels = None
         self.eval_params = eval_params
+        self.distribution = distribution
 
     @torch.no_grad()
     def recall_auroc(self, test_dl):
@@ -35,11 +36,16 @@ class Linear_Protocoler(object):
                 feats = self.encoder(x)
 
             labels = labels
-            unc = 1 / feats.scale
-            feats = feats.loc
 
-            feats = F.normalize(feats, dim=-1)
-            closest_idxes = feats.matmul(feats.transpose(-2, -1)).topk(2)[1][:, 1]
+            # TODO correct modelling of uncertainty from network output
+            #if self.distribution not in ["sphere", "normal", "normalSingleScale"]:
+            unc = 1 / feats.scale
+            #unc = feats.scale
+
+            loc = feats.loc
+
+            loc = F.normalize(loc, dim=-1)
+            closest_idxes = loc.matmul(loc.transpose(-2, -1)).topk(2)[1][:, 1]
             closest_classes = labels[closest_idxes]
             is_same_class = (closest_classes == labels).float()
             auroc = auc(-unc.squeeze(), is_same_class.int()).item()

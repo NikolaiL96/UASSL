@@ -11,11 +11,9 @@ class UncertaintyLoss(nn.Module):
 
     def forward(self, dist1, dist2):
         z1, z2 = dist1.loc.detach(), dist2.loc.detach()
-
         n_batch = z1.shape[0]
 
         z1, z2 = F.normalize(z1, dim=-1), F.normalize(z2, dim=-1)
-
         sim = torch.diag(torch.matmul(z1, z2.T))
 
         unc = torch.cat([dist1.scale, dist2.scale], dim=0)

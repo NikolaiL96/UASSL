@@ -1,5 +1,4 @@
 import os
-import logging
 from scripts.train import ex
 
 import argparse
@@ -17,21 +16,21 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", "-e", default=1000, type=int)
     parser.add_argument("--warmup", "-w", default=10, type=int)
     parser.add_argument("--loc_warmup", default=5, type=int)
-    parser.add_argument("--distribution", "-dist", default="powerspherical")
+    parser.add_argument("--distribution", "-dist", default="normal")
     parser.add_argument("--dataset", "-d", default="cifar10")
     parser.add_argument("--learning_rate", "-lr", default=6e-2, type=float)
-    parser.add_argument("--loss", "-l", default="MCNT-Xentpairwisemin")
-    parser.add_argument("--lambda_reg", "-lam", default=0.001, type=float)
+    parser.add_argument("--loss", "-l", default="KL_Loss")
+    parser.add_argument("--lambda_reg", "-lam", default=0., type=float)
     parser.add_argument("--temperature", "-t", default=0.01, type=float)
     parser.add_argument("--batch_size", "-bs", default=512, type=int)
     parser.add_argument("--network", "-n", default="resnet18", type=str)
-    parser.add_argument("--projector", "-pr", default=True, type=str2bool)
+    parser.add_argument("--projector", "-pr", default=False, type=str2bool)
     parser.add_argument("--projector_hidden", default=None, type=int)
     parser.add_argument("--projector_out", default=None, type=int)
     parser.add_argument("--n_mc", default=16, type=int)
     parser.add_argument("--fine_tuned", default=False, type=str2bool)
     parser.add_argument("--lambda_bt", "-lbt", default=0.005, type=float)
-    parser.add_argument("--lambda_unc", "-lu", default=0., type=float)
+    parser.add_argument("--lambda_unc", "-lu", default=0.1, type=float)
     parser.add_argument("--optimizer", default="SGD", type=str)
     parser.add_argument("--clip", default=0., type=float)
     parser.add_argument("--clip_type", default="None", type=str)
@@ -53,7 +52,7 @@ if __name__ == "__main__":
                          "n_mc": args.n_mc, "loc_warmup": args.loc_warmup}
     elif args.method == "BarlowTwins":
         method_params = {"projector_hidden": projector, "loss": args.loss, "lambda_bt": args.lambda_bt,
-                         "lambda_reg": args.lambda_reg, "lambda_unc": args.lambda_unc}
+                         "lambda_reg": args.lambda_reg, "lambda_unc": args.lambda_unc, "loc_warmup": args.loc_warmup}
 
     name = f"{args.method}--{args.dataset}--{args.network}--{projector}--{args.loss}"
     slug = f"{args.distribution}--t={args.temperature}--l_reg={args.lambda_reg}--l_unc={args.lambda_unc}"
@@ -62,7 +61,7 @@ if __name__ == "__main__":
         slug += f"--ID:{os.getenv('SLURM_JOB_ID')}"
 
         if os.getenv('SLURM_JOB_NAME') != "gpu_job":
-            slug += f"--Job_Name: {os.getenv('SLURM_JOB_NAME')}"
+            slug += f"--{os.getenv('SLURM_JOB_NAME')}"
 
     time = datetime.datetime.now().strftime("%B%d")
     slug += f"--{time}"

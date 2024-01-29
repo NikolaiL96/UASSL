@@ -8,5 +8,7 @@ def get_configuration(name):
         reduction = "mean"
     elif "min" in name:
         reduction = "min"
+    elif "max" in name:
+        reduction = "max"
 
     return method, reduction

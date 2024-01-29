@@ -62,7 +62,7 @@ class SSL_Trainer(object):
     def evaluate(self, eval_params):
         # Linear protocol
         evaluator = Linear_Protocoler(self.model.backbone_net, repre_dim=self.model.rep_dim, device=self.device,
-                                      eval_params=eval_params)
+                                      eval_params=eval_params, distribution=self.distribution)
         # knn accuracy
         knn = evaluator.knn_accuracy(self.data.train_eval_dl, self.data.test_dl)
 

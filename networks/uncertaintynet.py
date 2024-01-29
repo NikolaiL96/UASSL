@@ -12,21 +12,24 @@ from distributions import (
 )
 
 class KappaNet(nn.Module):
-    def __init__(self, rep_dim=2048, use_bias=True):
+    def __init__(self, rep_dim=2048, use_bias=True, hidden_dim=2048):
         super().__init__()
 
         # self.kappa_net = nn.Sequential(
         #     nn.Linear(rep_dim, rep_dim, bias=use_bias),
+        #     nn.BatchNorm1d(num_features=rep_dim),
         #     nn.ReLU(),
         #     nn.Linear(rep_dim, 1, bias=use_bias),
         # )
 
         self.kappa_net = nn.Sequential(
-            nn.Linear(rep_dim, rep_dim, bias=use_bias),
-            nn.BatchNorm1d(rep_dim),
+            nn.Linear(rep_dim, hidden_dim, bias=use_bias),
+            nn.BatchNorm1d(num_features=hidden_dim),
             nn.ReLU(),
-            nn.Linear(rep_dim, 1, bias=use_bias),
-            nn.BatchNorm1d(rep_dim),
+            nn.Linear(hidden_dim, hidden_dim, bias=use_bias),
+            nn.BatchNorm1d(num_features=hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1, bias=use_bias),
         )
 
     def forward(self, x):

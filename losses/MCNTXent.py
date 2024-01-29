@@ -55,8 +55,7 @@ class MCNTXent(nn.Module):
             sim_mat /= self.temperature
 
             pos = sim_mat[mask_pos].view(n_mc, 2 * n_batch)
-
-            loss = torch.logsumexp(sim_mat, dim=-1) - pos
+            loss = pos - torch.logsumexp(sim_mat, dim=-1)
 
         if self.method == "pairwise":
             mask_self, mask_pos, mask_neg = self.mask(n_batch, n_mc, p1.device)
@@ -67,17 +66,17 @@ class MCNTXent(nn.Module):
             sim_mat /= self.temperature
 
             # Shape of the terms: [1, 2 * n_mc * n_batch], [n_mc, 2 * n_mc * n_batch]
-            loss = torch.logsumexp(sim_mat, dim=-1)[None, :] - sim_mat[mask_pos].view(-1, n_mc * 2 * n_batch)
+            loss = sim_mat[mask_pos].view(-1, n_mc * 2 * n_batch) - torch.logsumexp(sim_mat, dim=-1)[None, :]
 
         if self.reduction == "mean":
-            loss = torch.mean(loss, dim=0)
-            return loss.mean()
+            loss = torch.logsumexp(loss, dim=0) - torch.log(torch.ones(1, device=p1.device) * n_mc)
+            return -loss.mean()
 
         elif self.reduction == "min":
-            loss, _ = torch.min(loss, dim=0)
-            return loss.mean()
+            loss, _ = torch.exp(loss).min(dim=0)
+            return -torch.log(loss).mean()
 
         elif self.reduction == "max":
-            loss, _ = torch.max(loss, dim=0)
-            return loss.mean()
+            loss, _ = torch.exp(loss).max(dim=0)
+            return -torch.log(loss).mean()
 

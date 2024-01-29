@@ -19,12 +19,14 @@ class BarlowTwins(nn.Module):
             lambda_reg: float = 0,
             distribution_type: str = "powerspherical",
             loss: str = "BT_Loss",
-            lambda_unc: float = 0.001
+            lambda_unc: float = 0.001,
+            loc_warmup: int = 0,
     ):
         super().__init__()
 
         self.backbone_net = backbone_net
         self.rep_dim = self.backbone_net.fc.in_features
+        self.loc_warmup = loc_warmup
 
         if backbone_net.name != "UncertaintyNet":
             backbone_net.fc = nn.Identity()
@@ -61,7 +63,11 @@ class BarlowTwins(nn.Module):
         dist1 = self.backbone_net(x1)
         dist2 = self.backbone_net(x2)
 
-        z1, z2 = dist1.rsample(), dist2.rsample()
+        # Use distribution's location for the first epochs
+        if epoch < self.loc_warmup:
+            z1, z2 = dist1.loc, dist2.loc
+        else:
+            z1, z2 = dist1.rsample(), dist2.rsample()
 
         # Get Sample Projections
         p1 = self.projector(z1)

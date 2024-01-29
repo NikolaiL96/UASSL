@@ -38,12 +38,13 @@ class Probabilistic_Regularizer(nn.Module):
 
 
     def KL_two_normal(self, x1, x2, reduction='mean'):
+
         if reduction == 'none':
             mean1, mean2 = x1.mean.unsqueeze(1), x2.mean.unsqueeze(0)
-            logvar1, logvar2 = x1.logvar.unsqueeze(1), x2.logvar.unsqueeze(0)
+            logvar1, logvar2 = torch.log(x1.scale).unsqueeze(1), torch.log(x2.scale).unsqueeze(0)
         else:
             mean1, mean2 = x1.mean, x2.mean
-            logvar1, logvar2 = x1.logvar, x2.logvar
+            logvar1, logvar2 = torch.log(x1.scale), torch.log(x2.scale)
 
         # KL Divergenz of two normal distributions with diagonal variance
         KLD = 0.5 * torch.sum(logvar2 - logvar1 - 1 +

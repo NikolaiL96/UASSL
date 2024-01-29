@@ -101,7 +101,7 @@ class Validate:
         else:
             test_loader = self.data_test.test_dl
         linear_evaluator = Linear_Protocoler(self.model.backbone_net.eval(), repre_dim=self.model.rep_dim,
-                                             device=self.device, eval_params=eval_params)
+                                             device=self.device, eval_params=eval_params, distribution=self.distribution)
 
         linear_evaluator.train(self.data.train_eval_dl)
         return linear_evaluator.linear_accuracy(test_loader)
