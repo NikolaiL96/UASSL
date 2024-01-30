@@ -1,7 +1,6 @@
 import os
 from utils.model_factory import MODEL_CONFIG, METHOD_CLS, DEFAULT_OPTIONS
 
-from .lamp import Lamb
 from torch.optim import SGD
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
@@ -30,7 +29,6 @@ def my_config():
     seed = 3407
     dataset = 'cifar10'
     network = 'resnet18'
-    optimizer = "SGD"
     eta = 0
     optim_params = None
     clip = 0.
@@ -43,6 +41,7 @@ def my_config():
     name = ""
     slug = "",
     fine_tuned = False,
+    pretrained = False
     lambda_unc = 0.
 
     path = "./saved_runs/"
@@ -59,7 +58,7 @@ def my_config():
 
     train_params = {
         "num_epochs": int(epochs),
-        "optimizer": SGD if optimizer == "SGD" else Lamb,
+        "optimizer": SGD,
         "scheduler": CosineAnnealingLR,
         "warmup_epochs": int(warmup),
         "iter_scheduler": True,

@@ -16,22 +16,22 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", "-e", default=1000, type=int)
     parser.add_argument("--warmup", "-w", default=10, type=int)
     parser.add_argument("--loc_warmup", default=5, type=int)
-    parser.add_argument("--distribution", "-dist", default="normal")
+    parser.add_argument("--distribution", "-dist", default="powerspherical")
     parser.add_argument("--dataset", "-d", default="cifar10")
     parser.add_argument("--learning_rate", "-lr", default=6e-2, type=float)
-    parser.add_argument("--loss", "-l", default="KL_Loss")
+    parser.add_argument("--loss", "-l", default="NT-Xent")
     parser.add_argument("--lambda_reg", "-lam", default=0., type=float)
     parser.add_argument("--temperature", "-t", default=0.01, type=float)
     parser.add_argument("--batch_size", "-bs", default=512, type=int)
-    parser.add_argument("--network", "-n", default="resnet18", type=str)
-    parser.add_argument("--projector", "-pr", default=False, type=str2bool)
+    parser.add_argument("--network", "-n", default="uncertainty_net", type=str)
+    parser.add_argument("--projector", "-pr", default=True, type=str2bool)
     parser.add_argument("--projector_hidden", default=None, type=int)
     parser.add_argument("--projector_out", default=None, type=int)
     parser.add_argument("--n_mc", default=16, type=int)
     parser.add_argument("--fine_tuned", default=False, type=str2bool)
+    parser.add_argument("--pretrained", default=True, type=str2bool)
     parser.add_argument("--lambda_bt", "-lbt", default=0.005, type=float)
-    parser.add_argument("--lambda_unc", "-lu", default=0.1, type=float)
-    parser.add_argument("--optimizer", default="SGD", type=str)
+    parser.add_argument("--lambda_unc", "-lu", default=0., type=float)
     parser.add_argument("--clip", default=0., type=float)
     parser.add_argument("--clip_type", default="None", type=str)
     parser.add_argument("--reduced_lr", default=False, type=str2bool)
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     data_root, path = get_data_root_and_path(args.cluster, args.run_final)
     projector = get_projector_settings(args.method, args.projector, args.network, args.projector_out,
                                        args.projector_hidden)
-    train_params, eta = get_train_params(args.method, args.optimizer, args.epochs, args.reduced_lr, args.batch_size,
+    train_params, eta = get_train_params(args.method, args.epochs, args.reduced_lr, args.batch_size,
                                          args.learning_rate, args.warmup)
 
     if args.method == "SimCLR":
@@ -71,7 +71,6 @@ if __name__ == "__main__":
                   "network": args.network,
                   "method": args.method,
                   "dataset": args.dataset,
-                  "optimizer": args.optimizer,
                   "clip": args.clip,
                   "clip_type": args.clip_type,
                   "reduced_lr": args.reduced_lr,
@@ -82,6 +81,7 @@ if __name__ == "__main__":
                   "batch_size": args.batch_size,
                   "method_params": method_params,
                   "distribution_params": {"type": args.distribution},
+                  "pretrained": args.pretrained,
                   "fine_tune": args.fine_tuned,
                   "lambda_unc": args.lambda_unc,
                   "path": path,

@@ -120,8 +120,6 @@ class SimCLR(nn.Module):
                 pz2, pk2 = self.projector(dist2.loc, dist2.scale)
                 return self.loss_fn(Normal(pz1, pk1), Normal(pz2, pk2))
             else:
-                warnings.warn("Projector hidden with KL Loss and no Normal distribution specified. No projection "
-                              "head will be used!")
                 return self.loss_fn(dist1, dist2)
         else:
             raise TypeError("Please specify a correct loss.")

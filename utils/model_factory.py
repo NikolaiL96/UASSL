@@ -1,10 +1,11 @@
 import models
-import os
+
 from networks import *
 import torch
 from distributions import Probabilistic_Layer
-from utils.utils import _get_model_name, _split_name
-from utils import load_dataset
+from utils.utils import _get_state_dict
+
+from networks.utils import get_checkpoint_path, clean_params
 
 
 
@@ -30,7 +31,9 @@ MODEL_CONFIG = {
 
 
 class ModelFactory:
-    def __init__(self, model_id, network_id, in_channels=3, distribution_type='none', model_options=None):
+    def __init__(self, model_id, network_id, device, in_channels=3, distribution_type='none', model_options=None,
+                 pretrained=False):
+
         if model_id not in MODEL_CONFIG.keys():
             raise ValueError('Unknown model_id')
 
@@ -40,21 +43,34 @@ class ModelFactory:
         self.distribution_type = distribution_type
         self.network_id = network_id
         self.in_channels = in_channels
+        self.model_id = model_id
+        self.pretrained = pretrained
+        self.device = device
 
     def build_model(self):
         return self._construct_model()
 
-    def load_from_checkpoint(self, checkpoint_path, device='cuda', finetune_prob_layer=""):
-        model = self._construct_model()
-        checkpoint = torch.load(checkpoint_path, map_location=device)
+    def load_from_checkpoint(self, model=None, finetune_prob_layer=""):
+        if model is None:
+            model = self._construct_model()
+
+        checkpoint_path = get_checkpoint_path(self.model_id)
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
         params = checkpoint["model"]
-        msg = model.load_state_dict(params, strict=False)
+
+        if self.network_id == "uncertainty_net":
+            params = checkpoint["model"]
+            msg = model.backbone_net.load_state_dict(params, strict=False)
+        else:
+            params = clean_params(params)
+            msg = model.load_state_dict(params, strict=False)
         print(msg)
+
         # We use a different Prob Layer
         if finetune_prob_layer:
             model.backbone_net.fc = Probabilistic_Layer(
                 finetune_prob_layer, model.repre_dim)
-        model.to(device)
+        model.to(self.device)
         return model, checkpoint
 
     def _construct_model(self):
@@ -64,6 +80,9 @@ class ModelFactory:
             **self.model_options,
             distribution_type=self.distribution_type,
         )
+
+        if self.pretrained:
+            model, _ = self.load_from_checkpoint(model)
         return model
 
     def _build_network(self, network, in_channels):

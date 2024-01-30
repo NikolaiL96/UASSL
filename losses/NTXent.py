@@ -13,7 +13,8 @@ class NTXent(nn.Module):
     def mask(self, n_batch, device):
         mask_self = torch.eye(2 * n_batch, dtype=torch.bool, device=device)
         mask_pos = mask_self.roll(shifts=n_batch, dims=1)
-        return mask_pos, mask_self
+        mask_neg = mask_self + mask_pos
+        return mask_pos, mask_self, ~mask_neg
 
     def forward(self, p1, p2):
         n_batch, _ = p1.shape
@@ -23,7 +24,7 @@ class NTXent(nn.Module):
         z = torch.cat([p1, p2], dim=0)
         sim_mat = torch.matmul(z, z.transpose(-2, -1)) / self.temperature
 
-        mask_pos, mask_self = self.mask(n_batch, device=p1.device)
+        mask_pos, mask_self, mask_neg = self.mask(n_batch, device=p1.device)
         sim_mat[mask_self] = float('-inf')
 
         loss = torch.logsumexp(sim_mat, dim=-1) - sim_mat[mask_pos]

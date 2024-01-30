@@ -78,4 +78,4 @@ class KL_Loss(nn.Module):
         sim_mat *= self.temperature
         loss = sim_mat[mask_pos] - torch.logsumexp(sim_mat, dim=-1)
 
-        return torch.mean(loss)
+        return -torch.mean(loss)

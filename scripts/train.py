@@ -41,6 +41,7 @@ def main(
         network,
         seed,
         fine_tune,
+        pretrained,
         _run,
         _log
 ):
@@ -60,8 +61,8 @@ def main(
 
     distribution_type = distribution_params["type"]
 
-    params = {"model_id": method, "network_id": network, "model_options": method_params,
-              "in_channels": in_channels, "distribution_type": distribution_type}
+    params = {"model_id": method, "network_id": network, "model_options": method_params, "device": device,
+              "in_channels": in_channels, "distribution_type": distribution_type, "pretrained": pretrained}
 
     model_factory = ModelFactory(**params)
     model = model_factory.build_model()

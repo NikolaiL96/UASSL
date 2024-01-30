@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 
-from torchvision.models import resnet18, resnet50
+from torchvision.models import resnet18
 
+from .utils import get_checkpoint_path
 from utils.utils import _get_state_dict
 from distributions import (
     pointdistribution,
@@ -88,19 +89,18 @@ class ProbabilisticLayer(nn.Module):
 
 
 class UncertaintyNet(nn.Module):
-    def __init__(self, in_channels, distribution_type, checkpoint_path=None, eps: float = 1e-4):
+    def __init__(self, in_channels, distribution_type, eps: float = 1e-4):
         super().__init__()
 
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-        self.checkpoint_path = checkpoint_path
         self.eps = eps
         self.in_channels = in_channels
         self.name = "UncertaintyNet"
 
         # Construct mean_net and kappa_net models
-        self.mean_model = self._build_model()
-        rep_dim = self.mean_model.fc.in_features
+        self.backbone_net = self._build_model()
+        rep_dim = self.backbone_net.fc.in_features
 
         # No need to train a kappa model for non-probabilistic baseline.
         if distribution_type not in ["sphere", "sphereNoFC"]:
@@ -109,19 +109,7 @@ class UncertaintyNet(nn.Module):
             self.kappa_model = nn.Identity()
 
         self.fc = ProbabilisticLayer(distribution_type, rep_dim)
-        self.mean_model.fc = nn.Identity()
-
-        # Load and initialize pre-trained model parameters
-        if checkpoint_path is not None:
-            self._load_params()
-
-    def _load_params(self):
-        # TODO write checkpoint function that automatically loads pretrained baseline if fine tune flag is set.
-        # Load pre-trained model for the mean_ and kappa_net
-        checkpoint = torch.load(self.checkpoint_path, map_location=self.device)
-        params, self.projector_params = _get_state_dict(checkpoint["model"])
-        msg = self.mean_model.load_state_dict(params, strict=False)
-        # msg = self.kappa_model.load_state_dict(params, strict=False)
+        self.backbone_net.fc = nn.Identity()
 
     def _build_model(self):
         resnet = resnet18(zero_init_residual=True)
@@ -131,7 +119,7 @@ class UncertaintyNet(nn.Module):
         return resnet
 
     def forward(self, x):
-        feats = self.mean_model(x)
+        feats = self.backbone_net(x)
         unc = self.kappa_model(feats.detach())
 
         return self.fc(feats, unc)

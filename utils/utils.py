@@ -11,7 +11,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from scripts.lamp import Lamb
 from torch.optim import SGD
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
@@ -67,8 +66,8 @@ def get_data_root_and_path(cluster, run_final):
     return data_root, path
 
 
-def get_optimizer(optimizer, method, lr=6e-2, batch_size=512):
-    optim_params = {}
+def get_optimizer(method, lr=6e-2, batch_size=512):
+    optim_params = {"momentum": 0.9}
 
     if method == "SimCLR":
         optim_params["lr"] = 0.3 * batch_size / 256
@@ -80,14 +79,10 @@ def get_optimizer(optimizer, method, lr=6e-2, batch_size=512):
     else:
         optim_params["lr"] = lr
 
-    if optimizer == "SGD":
-        optim_params["momentum"] = 0.9
-    elif optimizer == "Lamb":
-        optim_params["max_grad_norm"] = 10
     return optim_params
 
 
-def get_train_params(method, optimizer, epochs, reduced_lr, batch_size, lr=6e-2, warmup=0):
+def get_train_params(method, epochs, reduced_lr, batch_size, lr=6e-2, warmup=0):
     eta = 0
     if method == "SimCLR":
         warmup = 0
@@ -96,10 +91,10 @@ def get_train_params(method, optimizer, epochs, reduced_lr, batch_size, lr=6e-2,
         warmup = 10
         eta = 1.0e-3
 
-    optim_params = get_optimizer(optimizer=optimizer, method=method, batch_size=batch_size, lr=lr)
+    optim_params = get_optimizer(method=method, batch_size=batch_size, lr=lr)
 
     return {"num_epochs": int(epochs),
-            "optimizer": SGD if optimizer == "SGD" else Lamb,
+            "optimizer": SGD,
             "scheduler": CosineAnnealingLR,
             "warmup_epochs": int(warmup),
             "iter_scheduler": True,

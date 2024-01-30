@@ -1,1 +1,0 @@
-from .lamp import Lamb
