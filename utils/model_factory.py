@@ -3,7 +3,6 @@ import models
 from networks import *
 import torch
 from distributions import Probabilistic_Layer
-from utils.utils import _get_state_dict
 
 from networks.utils import get_checkpoint_path, clean_params
 
@@ -54,7 +53,7 @@ class ModelFactory:
         if model is None:
             model = self._construct_model()
 
-        checkpoint_path = get_checkpoint_path(self.model_id)
+        checkpoint_path = get_checkpoint_path(self.model_id, self.distribution_type)
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         params = checkpoint["model"]
 

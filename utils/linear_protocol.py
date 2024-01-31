@@ -3,9 +3,16 @@ import torch.nn as nn
 from torch.optim import SGD
 from torch.optim.lr_scheduler import CosineAnnealingLR
 import torch.nn.functional as F
+import numpy as np
+
+import matplotlib
+from pathlib import Path
+import os
 
 from torchmetrics.functional.classification import binary_auroc as auc
 from torch.cuda.amp import autocast, GradScaler
+
+from utils.reliability_diagrams import reliability_diagram
 
 
 class Linear_Protocoler(object):
@@ -29,6 +36,7 @@ class Linear_Protocoler(object):
     def recall_auroc(self, test_dl):
         Recall = []
         Auroc = []
+        Uncertainty, Loc, Labels = (), (), ()
         for x, labels in test_dl:
             x, labels = x.to(self.device), labels.to(self.device)
 
@@ -38,9 +46,10 @@ class Linear_Protocoler(object):
             labels = labels
 
             # TODO correct modelling of uncertainty from network output
-            #if self.distribution not in ["sphere", "normal", "normalSingleScale"]:
-            unc = 1 / feats.scale
-            #unc = feats.scale
+            if self.distribution not in ["sphere", "normal", "normalSingleScale"]:
+                unc = 1 / feats.scale
+            else:
+                unc = feats.scale
 
             loc = feats.loc
 
@@ -50,12 +59,27 @@ class Linear_Protocoler(object):
             is_same_class = (closest_classes == labels).float()
             auroc = auc(-unc.squeeze(), is_same_class.int()).item()
 
+            Uncertainty += (unc, )
+            Loc += (loc, )
+            Labels += (labels, )
+
             Recall.append(is_same_class.mean())
             Auroc.append(auroc)
 
+        Uncertainty = torch.cat(Uncertainty)
+        Loc = torch.cat(Loc)
+        Labels = torch.cat(Labels)
+
         Recall = torch.stack(Recall, 0)
         Auroc = torch.Tensor(Auroc)
-        return Recall.mean(), Auroc.mean()
+
+        c_idx = Loc.matmul(Loc.transpose(-2, -1)).topk(2)[1][:, 1]
+        c_c = Labels[c_idx]
+        Recall2 = (c_c == Labels).float()
+        Auroc_set = auc(-Uncertainty.squeeze(), Recall2.int()).item()
+
+
+        return Recall.mean(), Auroc.mean(), Recall2.mean(), Auroc_set
 
 
     @torch.no_grad()
@@ -192,24 +216,22 @@ class Linear_Protocoler(object):
 
         return total_top1 / total_num * 100
 
-    def linear_uncertainty(self, dataloader, reliability_name="", M=20):
+    def linear_uncertainty(self, dataloader, epoch="", M=20):
         total = 0
         nll = 0
         sample_mean_acc = 0
-        ece = -1
-        if reliability_name:
-            true_labels, pred_labels, confidences = [], [], []
+
+        true_labels, pred_labels, confidences = [], [], []
 
         # since we're not training, we don't need to calculate the gradients for our outputs
         with torch.no_grad():
             self.classifier.eval()
-            # TODO maybe combine it with the linear_accuracy to save some time
+
             for x, y in dataloader:
                 x, y = x.to(self.device), y.to(self.device)
                 # calculate outputs by running images through the network
                 with autocast(enabled=self.use_amp):
                     dist = self.encoder(x)
-
 
                 # Take M=20 monte Carlo samples
                 shape = dist.loc.shape
@@ -238,13 +260,26 @@ class Linear_Protocoler(object):
                 prob, pred_class = torch.max(out_prob, dim=1)
                 sample_mean_acc += (pred_class == y).float().sum().item()
 
-                if reliability_name:
-                    true_labels.extend(y.cpu().numpy())
-                    pred_labels.extend(pred_class.cpu().numpy())
-                    confidences.extend(prob.cpu().numpy())
+                true_labels.extend(y.cpu().numpy())
+                pred_labels.extend(pred_class.cpu().numpy())
+                confidences.extend(prob.cpu().numpy())
 
             self.classifier.train()
             self.encoder.train()
+
+        true_labels = np.asarray(true_labels, dtype=np.int64)
+        pred_labels = np.asarray(pred_labels, dtype=np.int64)
+        confidences = np.asarray(confidences, dtype=np.float32)
+        matplotlib.use('PDF')
+        fig, ece = reliability_diagram(
+            true_labels, pred_labels, confidences, num_bins=20, return_fig=True
+        )
+
+        id = os.getenv('SLURM_JOB_ID')
+        name = f"ReliabilityPlot_Epoch_{epoch}"
+        path = f"/home/lorenzni/imgs/{id}"
+        Path(path).mkdir(parents=True, exist_ok=True)
+        fig.savefig(f'{path}/{name}.pdf', dpi=fig.dpi)
 
         # We return: the nll of the sampling mean probability and the accuracy after aggregating the samples
         return nll / total, sample_mean_acc / total, ece
