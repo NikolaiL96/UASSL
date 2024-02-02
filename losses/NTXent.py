@@ -11,6 +11,7 @@ class NTXent(nn.Module):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self.temperature = temperature
+        # TODO delete
         #self.temperature = nn.Parameter(torch.ones(1, device=device) * 10, requires_grad=True)
 
     def mask(self, n_batch, device):

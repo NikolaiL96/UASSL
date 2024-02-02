@@ -12,13 +12,13 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--cluster", "-c", default=False, type=str2bool)
-    parser.add_argument("--method", "-m", default="SimCLR")
+    parser.add_argument("--method", "-m", default="Supervised")
     parser.add_argument("--epochs", "-e", default=1000, type=int)
     parser.add_argument("--warmup", "-w", default=10, type=int)
     parser.add_argument("--loc_warmup", default=5, type=int)
-    parser.add_argument("--distribution", "-dist", default="powerspherical")
+    parser.add_argument("--distribution", "-dist", default="sphere")
     parser.add_argument("--dataset", "-d", default="cifar10")
-    parser.add_argument("--learning_rate", "-lr", default=6e-2, type=float)
+    parser.add_argument("--learning_rate", "-lr", default=None, type=float)
     parser.add_argument("--loss", "-l", default="NT-Xent")
     parser.add_argument("--lambda_reg", "-lam", default=0., type=float)
     parser.add_argument("--temperature", "-t", default=0.01, type=float)
@@ -53,6 +53,8 @@ if __name__ == "__main__":
     elif args.method == "BarlowTwins":
         method_params = {"projector_hidden": projector, "loss": args.loss, "lambda_bt": args.lambda_bt,
                          "lambda_reg": args.lambda_reg, "lambda_unc": args.lambda_unc, "loc_warmup": args.loc_warmup}
+    elif args.method == "Supervised":
+        method_params = {"num_classes": 10 if args.dataset == "cifar10" else 100}
 
     name = f"{args.method}--{args.dataset}--{args.network}--{projector}--{args.loss}"
     slug = f"{args.distribution}--t={args.temperature}--l_reg={args.lambda_reg}--l_unc={args.lambda_unc}"

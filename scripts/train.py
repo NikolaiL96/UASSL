@@ -6,7 +6,7 @@ import datetime
 import torch
 import random
 import numpy as np
-from trainer import SSL_Trainer
+from trainer import SSL_Trainer, SupervisedTrainer
 
 from utils import get_device, load_dataset
 from utils.model_factory import ModelFactory
@@ -57,7 +57,8 @@ def main(
     random.seed(seed)
     torch.manual_seed(seed)
     np.random.seed(seed)
-    ssl_data, ad_ds, in_channels = load_dataset(dataset, data_root, augmentation_type, dl_kwargs)
+
+    ssl_data, _, in_channels = load_dataset(dataset, data_root, augmentation_type, dl_kwargs)
 
     distribution_type = distribution_params["type"]
 
@@ -69,9 +70,14 @@ def main(
     save_root = f"{artifact_dir}/{slug}"
     model.to(device)
 
-    cifar10_trainer = SSL_Trainer(model, ssl_data=ssl_data, data_root=data_root, device=device, save_root=save_root,
-                                  fine_tune=fine_tune, distribution=distribution_type, train_data=dataset, clip=clip,
-                                  clip_type=clip_type)
+    if method == "Supervised":
+        cifar10_trainer = SupervisedTrainer(model, ssl_data=ssl_data, data_root=data_root, device=device, save_root=save_root,
+                                      fine_tune=fine_tune, distribution=distribution_type, train_data=dataset, clip=clip,
+                                      clip_type=clip_type)
+    else:
+        cifar10_trainer = SSL_Trainer(model, ssl_data=ssl_data, data_root=data_root, device=device, save_root=save_root,
+                                      fine_tune=fine_tune, distribution=distribution_type, train_data=dataset, clip=clip,
+                                      clip_type=clip_type)
 
     scheduler_params = {"T_max": (train_params["num_epochs"] - train_params["warmup_epochs"]) * len(ssl_data.train_dl),
                         "eta_min": eta}

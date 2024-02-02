@@ -45,8 +45,7 @@ class Linear_Protocoler(object):
 
             labels = labels
 
-            # TODO correct modelling of uncertainty from network output
-            if self.distribution not in ["sphere", "normal", "normalSingleScale"]:
+            if self.distribution not in ["normal", "normalSingleScale"]:
                 unc = 1 / feats.scale
             else:
                 unc = feats.scale
@@ -59,9 +58,9 @@ class Linear_Protocoler(object):
             is_same_class = (closest_classes == labels).float()
             auroc = auc(-unc.squeeze(), is_same_class.int()).item()
 
-            Uncertainty += (unc, )
-            Loc += (loc, )
-            Labels += (labels, )
+            Uncertainty += (unc,)
+            Loc += (loc,)
+            Labels += (labels,)
 
             Recall.append(is_same_class.mean())
             Auroc.append(auroc)
@@ -75,12 +74,10 @@ class Linear_Protocoler(object):
 
         c_idx = Loc.matmul(Loc.transpose(-2, -1)).topk(2)[1][:, 1]
         c_c = Labels[c_idx]
-        Recall2 = (c_c == Labels).float()
-        Auroc_set = auc(-Uncertainty.squeeze(), Recall2.int()).item()
+        correctness = (c_c == Labels).float()
+        Auroc_set = auc(-Uncertainty.squeeze(), correctness.int()).item()
 
-
-        return Recall.mean(), Auroc.mean(), Recall2.mean(), Auroc_set
-
+        return Recall.mean(), Auroc.mean(), correctness.mean(), Auroc_set
 
     @torch.no_grad()
     def knn_accuracy(self, train_dl, test_dl, knn_k: int = 200, knn_t: float = 0.1):
@@ -161,7 +158,6 @@ class Linear_Protocoler(object):
         # Define scheduler
         scheduler = CosineAnnealingLR(optimizer, **schedular_params)
 
-
         # Train
         for epoch in range(num_epochs):
             for x, y in dataloader:
@@ -183,8 +179,7 @@ class Linear_Protocoler(object):
             if scheduler:
                 scheduler.step()
 
-
-    def linear_accuracy(self, dataloader):
+    def linear_accuracy(self, dataloader, epoch=None):
         """
         Returns the accuracy of the Linear Protocoler on the given dataloader
 
@@ -192,6 +187,9 @@ class Linear_Protocoler(object):
             accuracy: float Correct predictions / Total predictions
 
         """
+        if epoch is not None:
+            true_labels, pred_labels, confidences = [], [], []
+
         total_top1, total_num = 0.0, 0
         # since we're not training, we don't need to calculate the gradients for our outputs
         with torch.no_grad():
@@ -212,7 +210,34 @@ class Linear_Protocoler(object):
 
                 total_num += y.size(0)
                 total_top1 += (predicted == y).float().sum().item()
+
+                if epoch is not None:
+                    true_labels.extend(y.cpu().numpy())
+                    pred_labels.extend(predicted.cpu().numpy())
+                    confidences.extend(dist.scale.cpu().numpy())
+
         self.classifier.train()
+
+        if epoch is not None:
+            true_labels = np.asarray(true_labels, dtype=np.int64)
+            pred_labels = np.asarray(pred_labels, dtype=np.int64)
+            confidences = np.asarray(confidences, dtype=np.float32)
+
+            if self.distribution in ["normal", "normalSingleScale"]:
+                # Confidence is certainty not uncertainty
+                confidences = 1 / confidences
+
+            confidences_minmax = (confidences - confidences.min()) / (confidences.max() - confidences.min())
+
+            matplotlib.use('PDF')
+            fig, ece = reliability_diagram(true_labels, pred_labels, confidences_minmax, num_bins=20, return_fig=True)
+
+            id = os.getenv('SLURM_JOB_ID')
+            name = f"ReliabilityPlot_Epoch_{epoch}"
+            path = f"/home/lorenzni/imgs/{id}"
+            Path(path).mkdir(parents=True, exist_ok=True)
+            fig.savefig(f'{path}/{name}.pdf', dpi=fig.dpi)
+            return total_top1 / total_num * 100, ece
 
         return total_top1 / total_num * 100
 
@@ -245,15 +270,7 @@ class Linear_Protocoler(object):
                 out_logits = torch.mean(outputs, dim=0)
                 out_prob = torch.softmax(out_logits, dim=1)
 
-                # Aggregating before softmax had better results:
-                # We can use a softmax per sample to get probabilities
-                # out_prob = torch.softmax(outputs, dim=2)
-                # Calculate NLL on the average probability over the Samples
-                # out_prob_mean = torch.mean(out_prob, dim=0)
-
-                logprob_mean = torch.log(
-                    torch.gather(out_prob, 1, y.unsqueeze(1)) + 1e-6
-                )
+                logprob_mean = torch.log(torch.gather(out_prob, 1, y.unsqueeze(1)) + 1e-6)
                 nll -= torch.sum(logprob_mean).item()
                 total += y.size(0)
 
@@ -288,12 +305,12 @@ class Linear_Protocoler(object):
 # code for kNN prediction from here:
 # https://colab.research.google.com/github/facebookresearch/moco/blob/colab-notebook/colab/moco_cifar10_demo.ipynb
 def knn_predict(
-    feature: torch.Tensor,
-    feature_bank: torch.Tensor,
-    feature_labels: torch.Tensor,
-    num_classes: int,
-    knn_k: int,
-    knn_t: float,
+        feature: torch.Tensor,
+        feature_bank: torch.Tensor,
+        feature_labels: torch.Tensor,
+        num_classes: int,
+        knn_k: int,
+        knn_t: float,
 ) -> torch.Tensor:
     """Run kNN predictions on features based on a feature bank
     This method is commonly used to monitor performance of self-supervised

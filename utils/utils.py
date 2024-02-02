@@ -17,6 +17,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from distributions import powerspherical as ps
 
 
+
 def log_level(log_level="info"):
     log_level = log_level.lower()
 
@@ -66,7 +67,7 @@ def get_data_root_and_path(cluster, run_final):
     return data_root, path
 
 
-def get_optimizer(method, lr=6e-2, batch_size=512):
+def get_optimizer(method, lr=None, batch_size=512):
     optim_params = {"momentum": 0.9}
 
     if method == "SimCLR":
@@ -76,7 +77,12 @@ def get_optimizer(method, lr=6e-2, batch_size=512):
     elif method == "BarlowTwins":
         optim_params["lr"] = 0.3 * batch_size / 512
         optim_params["weight_decay"] = 1e-4
-    else:
+
+    elif method == "Supervised":
+        optim_params["lr"] = 0.05
+        optim_params["weight_decay"] = 5.0e-4
+
+    if lr is not None:
         optim_params["lr"] = lr
 
     return optim_params
@@ -89,6 +95,9 @@ def get_train_params(method, epochs, reduced_lr, batch_size, lr=6e-2, warmup=0):
         eta = 1.0e-3
     elif method == "BarlowTwins":
         warmup = 10
+        eta = 1.0e-3
+    elif method == "Supervised":
+        warmup = 0
         eta = 1.0e-3
 
     optim_params = get_optimizer(method=method, batch_size=batch_size, lr=lr)

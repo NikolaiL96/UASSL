@@ -23,6 +23,13 @@ def SimCLR():
     method_params = MODEL_CONFIG[method][DEFAULT_OPTIONS]
     method_cls = MODEL_CONFIG[method][METHOD_CLS]
 
+@ex.named_config
+def Supervised():
+    method = "Supervised"
+    augmentation_type = "Supervised"
+    method_params = MODEL_CONFIG[method][DEFAULT_OPTIONS]
+    method_cls = MODEL_CONFIG[method][METHOD_CLS]
+
 @ex.config
 def my_config():
     method = ""

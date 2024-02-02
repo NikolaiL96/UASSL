@@ -1,18 +1,13 @@
 from torch.utils.data import DataLoader
-import torch
 
 from torchvision import transforms
 from torchvision.datasets import CIFAR10, CIFAR100
 from torchvision.datasets import FashionMNIST
-from torchvision.datasets import StanfordCars
-from torchvision.datasets import ImageFolder
-#from .datasets import NoisyBg_OxfordPet
-from augmentation import CURRICULUM_augmentations, BYOL_augmentaions, SimSiam_augmentaions, VICReg_augmentaions, OneChannel_augmentaions
-import os
-import re
 
-# Cifar10 Mean and Std
-#from utils import NoisyBg_OxfordPet
+from torchvision.datasets import ImageFolder
+from augmentation import (CURRICULUM_augmentations, BYOL_augmentaions, SimSiam_augmentaions, VICReg_augmentaions,
+                          OneChannel_augmentaions, Supervised_augmentations)
+
 
 CIFAR10_NORM = [[0.49139968, 0.48215827, 0.44653124], [0.24703233, 0.24348505, 0.26158768]]
 CIFAR100_NORM = [[0.5071, 0.4867, 0.4408], [0.2675, 0.2565, 0.2761]]
@@ -66,14 +61,6 @@ def load_dataset(dataset, data_root, augmentation_type="BYOL", dl_kwargs=None):
     elif dataset == 'fashionmnist':
         ssl_data = SSL_FashionMNIST(data_root, augmentation_type, FASHION_NORM, dl_kwargs)
         in_channels = 1
-    elif "oxfordpet" in dataset:
-        # Parse Dataset parameters from name:
-        img_size = int(re.findall(r'%s(\d+)' % "ImgSize", dataset)[0])
-        pet_size = int(re.findall(r'%s(\d+)' % "PetSize", dataset)[0])
-        background = re.findall(r'%s(\w+)' % "Background", dataset)[0]
-        print(f"Img size: {img_size}, Pet {pet_size}, background {background}")
-        ssl_data = SSL_OxfordPet(data_root, augmentation_type, img_size, pet_size, background, OXFORD_NORM, dl_kwargs)
-        in_channels = 3
     elif dataset == "cars196":
         ssl_data = SSL_CARS196(data_root, augmentation_type, CARS196_NORM, dl_kwargs)
         in_channels = 3
@@ -88,79 +75,6 @@ def load_dataset(dataset, data_root, augmentation_type="BYOL", dl_kwargs=None):
     return ssl_data, ad_ds, in_channels
 
 
-class SSL_OxfordPet(object):
-    def __init__(
-            self, data_root, augmentation, img_size, pet_size, background, dl_kwargs
-    ):
-        assert augmentation in [
-            "BYOL",
-            "SimSiam",
-            "VICReg",
-        ], "augmentation must be in ['BYOL', 'SimSiam', 'VICReg','Curriculum']"
-        self.augmentation = augmentation
-        # Define Augmentations
-        if augmentation == "BYOL":
-            train_transf = BYOL_augmentaions(image_size=img_size, normalize=OXFORD_NORM)
-        elif augmentation == "SimSiam":
-            train_transf = SimSiam_augmentaions(
-                image_size=img_size, normalize=OXFORD_NORM
-            )
-        elif augmentation == "VICReg":
-            train_transf = VICReg_augmentaions(
-                image_size=img_size, normalize=OXFORD_NORM
-            )
-        train_eval_transf = transforms.Compose(
-            [
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(*OXFORD_NORM),
-            ]
-        )
-
-        test_transf = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize(*OXFORD_NORM)]
-        )
-
-        # Define Datasets
-        # TODO but dataset in here!
-
-        train_ds = NoisyBg_OxfordPet(
-            root=data_root,
-            split="trainval",
-            img_size=img_size,
-            pet_size=pet_size,
-            background=background,
-            download=True,
-            transform=train_transf,
-        )
-        train_eval_ds = NoisyBg_OxfordPet(
-            root=data_root,
-            split="trainval",
-            img_size=img_size,
-            pet_size=pet_size,
-            background=background,
-            transform=train_eval_transf,
-            download=True,
-        )
-        test_ds = NoisyBg_OxfordPet(
-            root=data_root,
-            split="test",
-            img_size=img_size,
-            pet_size=pet_size,
-            background=background,
-            transform=test_transf,
-            download=True,
-        )
-
-        # Define Dataloaders
-        self.train_dl = DataLoader(train_ds, drop_last=True, **dl_kwargs)
-        self.train_eval_dl = DataLoader(train_eval_ds, drop_last=False, **dl_kwargs)
-        self.test_dl = DataLoader(test_ds, drop_last=False, **dl_kwargs)
-
-    def normalization_params(self):
-        return OXFORD_NORM
-
-
 class SSL_CIFAR10(object):
     def __init__(self, data_root, augmentation, normalisation, dl_kwargs):
         assert augmentation in [
@@ -168,7 +82,8 @@ class SSL_CIFAR10(object):
             "SimSiam",
             "VICReg",
             "Curriculum",
-        ], "augmentation must be in ['BYOL', 'SimSiam', 'VICReg','Curriculum']"
+            "Supervised",
+        ], "augmentation must be in ['BYOL', 'SimSiam', 'VICReg','Curriculum', 'Supervised']"
         self.augmentation = augmentation
         # Define Augmentations
         if augmentation == "BYOL":
@@ -178,9 +93,10 @@ class SSL_CIFAR10(object):
         elif augmentation == "VICReg":
             train_transf = VICReg_augmentaions(image_size=32, normalize=normalisation)
         elif augmentation == "Curriculum":
-            train_transf = CURRICULUM_augmentations(
-                image_size=32, magnitude=0.0, normalize=normalisation
-            )
+            train_transf = CURRICULUM_augmentations(image_size=32, magnitude=0.0, normalize=normalisation)
+        elif augmentation == "Supervised":
+            train_transf = Supervised_augmentations(image_size=32, normalize=normalisation)
+
         train_eval_transf = transforms.Compose(
             [
                 transforms.RandomHorizontalFlip(),
@@ -198,21 +114,11 @@ class SSL_CIFAR10(object):
         )
 
         # Define Datasets
-        train_ds = CIFAR10(
-            root=data_root, train=True, download=True, transform=train_transf
-        )
-        train_eval_ds = CIFAR10(
-            root=data_root, train=True, transform=train_eval_transf, download=True
-        )
-        train_plain_dl = CIFAR10(
-            root=data_root, train=True, transform=test_transf, download=True
-        )
-        test_ds = CIFAR10(
-            root=data_root, train=False, transform=test_transf, download=True
-        )
-        train_norm_ds = CIFAR10(
-            root=data_root, train=True, download=True, transform=norm_transf
-        )
+        train_ds = CIFAR10(root=data_root, train=True, download=True, transform=train_transf)
+        train_eval_ds = CIFAR10(root=data_root, train=True, transform=train_eval_transf, download=True)
+        train_plain_dl = CIFAR10(root=data_root, train=True, transform=test_transf, download=True)
+        test_ds = CIFAR10(root=data_root, train=False, transform=test_transf, download=True)
+        train_norm_ds = CIFAR10(root=data_root, train=True, download=True, transform=norm_transf)
 
         # Define Dataloaders
         self.train_dl = DataLoader(train_ds, drop_last=True, **dl_kwargs)
@@ -234,21 +140,53 @@ class SSL_CIFAR10(object):
 
 class SSL_CARS196(object):
     def __init__(self, data_root, augmentation, normalisation, dl_kwargs):
+        data_root += "cars196/"
+
+        # Define Augmentations
+        if augmentation == "BYOL":
+            train_transf = BYOL_augmentaions(image_size=224, normalize=normalisation)
+        elif augmentation == "SimSiam":
+            train_transf = SimSiam_augmentaions(image_size=224, normalize=normalisation)
+        elif augmentation == "VICReg":
+            train_transf = VICReg_augmentaions(image_size=224, normalize=normalisation)
+        elif augmentation == "Curriculum":
+            train_transf = CURRICULUM_augmentations(
+                image_size=224, magnitude=0.0, normalize=normalisation
+            )
+
+        train_eval_transf = transforms.Compose(
+            [
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(*normalisation),
+                transforms.Resize(size=(224, 224), antialias=True)
+            ]
+        )
 
         test_transf = transforms.Compose(
             [transforms.ToTensor(), transforms.Normalize(*normalisation), transforms.Resize(size=(224, 224), antialias=True)]
         )
 
         norm_transf = transforms.Compose(
-            [transforms.ToTensor(), transforms.Resize(size=(224, 224))]
+            [transforms.ToTensor() , transforms.Resize(size=(224, 224), antialias=True)]
         )
 
-
         # Define Datasets
-        test_ds = ImageFolder(root=data_root, transform=test_transf)
-        train_norm_ds = ImageFolder(root=data_root, transform=norm_transf)
+        train_ds = ImageFolder(root=data_root + "train/", transform=train_transf
+        )
+        train_eval_ds = ImageFolder(root=data_root + 'train/', transform=train_eval_transf
+        )
+        train_plain_dl = ImageFolder(root=data_root + 'train/', transform=test_transf
+        )
+        test_ds = ImageFolder(root=data_root + 'test/', transform=test_transf
+        )
+        train_norm_ds = ImageFolder(root=data_root + 'train/', transform=norm_transf
+        )
 
         # Define Dataloaders
+        self.train_dl = DataLoader(train_ds, drop_last=True, **dl_kwargs)
+        self.train_eval_dl = DataLoader(train_eval_ds, drop_last=False, **dl_kwargs)
+        self.train_plain_dl = DataLoader(train_plain_dl, drop_last=False, **dl_kwargs)
         self.test_dl = DataLoader(test_ds, drop_last=False, **dl_kwargs)
         self.train_norm_ds = DataLoader(train_norm_ds, drop_last=False, **dl_kwargs)
         self.normalisation = normalisation
@@ -369,7 +307,8 @@ class SSL_CIFAR100(object):
             "BYOL",
             "SimSiam",
             "VICReg",
-        ], "augmentation must be in ['BYOL', 'SimSiam', 'VICReg']"
+            "Supervised"
+        ], "augmentation must be in ['BYOL', 'SimSiam', 'VICReg', 'Supervised']"
         self.augmentation = augmentation
         self.normalisation = normalisation
         # Define Augmentations
@@ -379,6 +318,8 @@ class SSL_CIFAR100(object):
             train_transf = SimSiam_augmentaions(image_size=32, normalize=self.normalisation)
         elif augmentation == "VICReg":
             train_transf = VICReg_augmentaions(image_size=32, normalize=self.normalisation)
+        elif augmentation == "Supervised":
+            train_transf = Supervised_augmentations(image_size=32, normalize=normalisation)
 
         train_eval_transf = transforms.Compose(
             [

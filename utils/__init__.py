@@ -1,6 +1,6 @@
 from .linear_protocol import Linear_Protocoler
 from .utils import check_existing_model, get_device
-from .ssl_datasets import SSL_CIFAR10, SSL_FashionMNIST, SSL_CIFAR100, SSL_OxfordPet, load_dataset
+from .ssl_datasets import SSL_CIFAR10, SSL_FashionMNIST, SSL_CIFAR100, load_dataset
 from .datasets import NoisyBg_OxfordPet
 from .model_factory import ModelFactory
 from .ssl_datasets import load_dataset

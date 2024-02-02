@@ -79,7 +79,7 @@ class Validate:
             test_unc += (unc_test,)
 
         unc = torch.cat(test_unc).cpu().numpy()
-        if self.distribution not in ["sphere", "normal"]:
+        if self.distribution not in ["normal", "normalSingleScale"]:
             unc = 1 / unc
 
         try:
@@ -95,7 +95,7 @@ class Validate:
             print(e)
             return 0., 0.
 
-    def get_linear_probing(self, eval_params, oob_data=False):
+    def get_linear_probing(self, eval_params, oob_data=False, epoch=None):
         if not oob_data:
             test_loader = self.data.test_dl
         else:
@@ -104,7 +104,7 @@ class Validate:
                                              device=self.device, eval_params=eval_params, distribution=self.distribution)
 
         linear_evaluator.train(self.data.train_eval_dl)
-        return linear_evaluator.linear_accuracy(test_loader)
+        return linear_evaluator.linear_accuracy(test_loader, epoch)
 
     @torch.no_grad()
     def _extract_train(self, train_dl):
@@ -179,7 +179,7 @@ class Validate:
                 feats = self.encoder(x)
 
             loc = feats.loc
-            if self.distribution not in ["sphere", "normal"]:
+            if self.distribution not in ["normal", "normalSingleScale"]:
                 uncertainty = 1 / feats.scale
             else:
                 uncertainty = feats.scale
@@ -203,8 +203,8 @@ class Validate:
     @torch.no_grad()
     def corrupted_img(self):
         # Modified from https://github.com/mkirchhof/url/tree/main
-        crop_min = torch.tensor(0.1, device=self.device)
-        crop_max = torch.tensor(0.5, device=self.device)
+        crop_min = torch.tensor(0.25, device=self.device)
+        crop_max = torch.tensor(1., device=self.device)
         k = 0
         crop = torch.rand(len(self.data_test.test_dl.dataset), device=self.device) * (crop_max - crop_min) + crop_min
 
@@ -227,7 +227,7 @@ class Validate:
 
         unc, unc_c = torch.cat(unc), torch.cat(unc_c)
 
-        if self.distribution not in ["sphere", "normal"]:
+        if self.distribution not in ["normal", "normalSingleScale"]:
             unc, unc_c = 1 / unc, 1 / unc_c
 
         p_cropped = (unc > unc_c).float().mean()
@@ -265,7 +265,7 @@ class Validate:
             kappa = feats.scale
             loc = feats.loc
 
-            if self.distribution not in ["sphere", "normal"]:
+            if self.distribution not in ["normal", "normalSingleScale"]:
                 kappa = 1 / kappa
             else:
                 kappa = kappa

@@ -19,6 +19,8 @@ def simclr_transforms(image_size: int, jitter: tuple = (0.4, 0.4, 0.2, 0.1),
     # Turn off blur for small images
     if image_size <= 32:
         p_blur = 0.0
+    else:
+        trans_list.append(T.Resize(size=(224, 224), antialias=True))
     # Add Gaussian blur
     if p_blur == 1.0:
         trans_list.append(T.GaussianBlur(image_size // 20 * 2 + 1))
@@ -63,3 +65,13 @@ class TwoTransform(object):
         x1 = self.base_transform(x)
         x2 = self.sec_transform(x)
         return x1, x2
+
+class Transform(object):
+    """Applies data augmentation two times."""
+
+    def __init__(self, transform):
+        self.transform = transform
+
+    def __call__(self, x):
+        x = self.transform(x)
+        return x

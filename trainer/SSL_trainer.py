@@ -59,15 +59,12 @@ class SSL_Trainer(object):
         # Define data
         self.data = ssl_data
 
-    def evaluate(self, eval_params, epoch, unc=False):
+    def evaluate(self, eval_params):
         # Linear protocol
         evaluator = Linear_Protocoler(self.model.backbone_net, repre_dim=self.model.rep_dim, device=self.device,
                                       eval_params=eval_params, distribution=self.distribution)
         # knn accuracy
         knn = evaluator.knn_accuracy(self.data.train_eval_dl, self.data.test_dl)
-        if unc:
-            nll, AccMC, ece = evaluator.linear_uncertainty(self.data.test_dl, epoch=epoch)
-            return nll, AccMC, ece
 
         # R@1 and R-AUROC
         recall, auc, R2, A2 = evaluator.recall_auroc(self.data.test_dl)
@@ -249,14 +246,14 @@ class SSL_Trainer(object):
 
             # TODO validation time
             if (epoch + 1) % 6 == 0:
-                recall, auroc, knn, R2, A2 = self.evaluate(eval_params=eval_params, epoch=epoch, unc=False)
+                R2, A2, knn, recall, auroc = self.evaluate(eval_params=eval_params)
 
                 if self.environment != "gpu-test":
-                    self.tb_logger.add_scalar('kappa/AUROC', auroc, epoch)
-                    self.tb_logger.add_scalar('kappa/R@1', recall, epoch)
+                    self.tb_logger.add_scalar('kappa/AUROC', A2, epoch)
+                    self.tb_logger.add_scalar('kappa/R@1', R2, epoch)
                     self.tb_logger.add_scalar('kappa/knn', knn, epoch)
-                    self.tb_logger.add_scalar('kappa/AUROC_Dataset', A2, epoch)
-                    self.tb_logger.add_scalar('kappa/R@1_Dataset', R2, epoch)
+                    self.tb_logger.add_scalar('kappa/AUROC_Dataset', auroc, epoch)
+                    self.tb_logger.add_scalar('kappa/R@1_Dataset', recall, epoch)
 
                 logger.info(f"Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc:0.3f}, Recall: {recall:0.3f}, "
                             f"knn: {knn:0.1f}\n")
@@ -269,8 +266,10 @@ class SSL_Trainer(object):
 
                 cor_corrupted, p_corrupted = validate.get_metrics()
                 cor_pearson, cor_spearman = validate.get_cor()
-                linear_acc_10 = validate.get_linear_probing(eval_params=eval_params)
-                nll, MC_Acc, ece = self.evaluate(eval_params=eval_params, epoch=epoch, unc=True)
+
+                linear_acc_10, ece = validate.get_linear_probing(eval_params=eval_params, epoch=epoch)
+                print(f"ece_minmax: {ece}")
+
 
                 if self.environment != "gpu-test":
                     self.tb_logger.add_scalar('kappa/cor_corrupted', cor_corrupted, epoch)
@@ -279,6 +278,8 @@ class SSL_Trainer(object):
                     self.tb_logger.add_scalar('kappa/cor_pearson', cor_pearson, epoch)
                     self.tb_logger.add_scalar('kappa/cor_spearman', cor_spearman, epoch)
                     self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR10', linear_acc_10, epoch)
+
+                    self.tb_logger.add_scalar('kappa/ece', ece, epoch)
 
             # Run evaluation
             if epoch == num_epochs - 1:

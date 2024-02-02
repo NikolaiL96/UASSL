@@ -26,6 +26,10 @@ MODEL_CONFIG = {
                           "temperature": 0.05,
                           "lambda_reg": 0.01}
     },
+    'Supervised': {
+        METHOD_CLS: models.Supervised,
+        DEFAULT_OPTIONS: {"num_classes": 10}
+    },
 }
 
 
