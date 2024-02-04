@@ -79,7 +79,7 @@ def get_optimizer(method, lr=None, batch_size=512):
         optim_params["weight_decay"] = 1e-4
 
     elif method == "Supervised":
-        optim_params["lr"] = 0.05
+        optim_params["lr"] = 0.1
         optim_params["weight_decay"] = 5.0e-4
 
     if lr is not None:

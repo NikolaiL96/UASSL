@@ -13,24 +13,14 @@ from distributions import (
 )
 
 class KappaNet(nn.Module):
-    def __init__(self, rep_dim=2048, use_bias=True, hidden_dim=2048):
+    def __init__(self, rep_dim=512, out_dim=1, use_bias=True):
         super().__init__()
 
-        # self.kappa_net = nn.Sequential(
-        #     nn.Linear(rep_dim, rep_dim, bias=use_bias),
-        #     nn.BatchNorm1d(num_features=rep_dim),
-        #     nn.ReLU(),
-        #     nn.Linear(rep_dim, 1, bias=use_bias),
-        # )
-
         self.kappa_net = nn.Sequential(
-            nn.Linear(rep_dim, hidden_dim, bias=use_bias),
-            nn.BatchNorm1d(num_features=hidden_dim),
+            nn.Linear(rep_dim, rep_dim, bias=use_bias),
+            nn.BatchNorm1d(num_features=rep_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim, bias=use_bias),
-            nn.BatchNorm1d(num_features=hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, 1, bias=use_bias),
+            nn.Linear(rep_dim, out_dim, bias=use_bias),
         )
 
     def forward(self, x):
@@ -76,7 +66,7 @@ class ProbabilisticLayer(nn.Module):
 
         if "normal" in self.distribution:
             if kappa.dim() == 1:
-                kappa = kappa.unsqueeze(1).expand(-1, self.in_features)
+                raise ValueError("If distribution is normal, uncertainty should be two-dimensional.")
             return normaldistribution.Normal(mean, kappa)
 
         if self.distribution == "normalSingleScale":
@@ -102,9 +92,11 @@ class UncertaintyNet(nn.Module):
         self.backbone_net = self._build_model()
         rep_dim = self.backbone_net.fc.in_features
 
+        out_dim = 1 if distribution_type != "normal" else rep_dim
+
         # No need to train a kappa model for non-probabilistic baseline.
         if distribution_type not in ["sphere", "sphereNoFC"]:
-            self.kappa_model = KappaNet(rep_dim=rep_dim)
+            self.kappa_model = KappaNet(rep_dim=rep_dim, out_dim=out_dim)
         else:
             self.kappa_model = nn.Identity()
 

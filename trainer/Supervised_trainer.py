@@ -12,6 +12,11 @@ from torch.cuda.amp import autocast, GradScaler
 from scipy.stats import entropy
 import torch.nn as nn
 from torchmetrics.functional.classification import binary_auroc as auc
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+from pathlib import Path
+from sklearn.manifold import TSNE
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
 logger = logging.getLogger()
@@ -57,11 +62,20 @@ class SupervisedTrainer(object):
         # Model
         self.model = model.to(self.device)
 
+        # self.model.backbone_net.avgpool.register_forward_hook(self.get_activation('second_to_last'))
+
         # Define data
         self.data = ssl_data
+        self.activation = {}
+
+    def get_activation(self, name):
+        def hook(model, input, output):
+            self.activation[name] = output.detach()
+
+        return hook
 
     def evaluate(self,):
-        Recall, Auroc = [], []
+        Recall, Auroc, Auroc_norm = [], [], []
         total_top1, total_num = 0.0, 0
         for x, labels in self.data.test_dl:
             x, labels = x.to(self.device), labels.to(self.device)
@@ -71,22 +85,86 @@ class SupervisedTrainer(object):
 
                 pred = torch.argmax(output, dim=-1)
                 unc = entropy(nn.Softmax(dim=-1)(output).cpu().numpy(), axis=1)
+                unc_norm = torch.linalg.norm(output, dim=1)
                 is_same_class = (pred == labels).float()
                 auroc = auc(-torch.as_tensor(unc, device=self.device), is_same_class.int()).item()
+                auroc_norm = auc(-unc_norm, is_same_class.int()).item()
 
                 total_num += labels.size(0)
                 total_top1 += (pred == labels).float().sum().item()
 
                 Recall.append(is_same_class.mean())
                 Auroc.append(auroc)
+                Auroc_norm.append(auroc_norm)
 
         Recall = torch.stack(Recall, 0)
         Auroc = torch.Tensor(Auroc)
+        Auroc_norm = torch.Tensor(Auroc_norm)
         acc = total_top1 / total_num * 100
-        return Recall.mean(), Auroc.mean(), acc
+        return Recall.mean(), Auroc.mean(), Auroc_norm.mean(), acc
+
+    def vis_t_SNE(self):
+
+        self.model.eval()
+
+        test_labels, test_uncertainty, test_loc = (), (), ()
+        with torch.no_grad():
+            for n, (x, labels) in enumerate(self.data.test_dl):
+                x, labels = x.to(self.device), labels.to(self.device)
+
+                with autocast(enabled=self.use_amp):
+                    output = self.model(x)
+
+                uncertainty = entropy(nn.Softmax(dim=-1)(output).cpu().numpy(), axis=1)
+
+                test_labels += (labels,)
+                test_uncertainty += (torch.as_tensor(uncertainty),)
+                test_loc += (output, )
+                #test_loc += (self.activation["second_to_last"],)
+
+                dataset = str(self.data.test_dl.dataset).split("\n")[0].split(" ")[1]
+
+            feats, labels, unc = torch.cat(test_loc), torch.cat(test_labels), torch.cat(test_uncertainty)
+
+            if dataset == "cifar10":
+                idx = torch.randperm(unc.shape[0])[:4000]
+
+            else:
+                id = torch.tensor(np.random.choice(np.unique(labels.cpu().numpy()), 10), device=self.device)
+                idx = torch.sum((labels[:, None] == id) * id[None], dim=-1).nonzero().squeeze()[:4000]
+                idx = idx.cpu()
+
+
+            feats, labels, unc = feats.squeeze().cpu(), labels.cpu(), unc.cpu()
+            feats, labels, unc = feats[idx], labels[idx], unc[idx]
+
+            unc_min = unc.min()
+            unc_max = unc.max()
+            # Exponential weighting of higher uncertainties for better visualization
+            unc = torch.exp((unc - unc_min) / (unc_max - unc_min) * 3.5)
+        print(feats.shape)
+
+        # Perform t-SNE
+        feats_tsne = TSNE(n_components=2, learning_rate='auto', init='random', perplexity=50).fit_transform(feats)
+
+        matplotlib.use('PDF')
+        fig = plt.figure()
+        plt.style.use('default')
+        plt.scatter(feats_tsne[:, 0], feats_tsne[:, 1], c=labels, s=unc, alpha=0.6)
+
+        # Remove axis ticks and labels.
+        plt.xticks([])
+        plt.yticks([])
+
+        id = os.getenv('SLURM_JOB_ID')
+        name = f"t-SNE_{dataset}_Supervised"
+        path = f"/home/lorenzni/imgs/{id}"
+        Path(path).mkdir(parents=True, exist_ok=True)
+        fig.savefig(f'{path}/{name}.pdf', dpi=fig.dpi)
 
     def train_epoch(self, epoch_id):
         # make sure that things get set properly
+
         self.model.train()
         self.model.requires_grad_(True)
 
@@ -96,7 +174,7 @@ class SupervisedTrainer(object):
             forward_time = 0.
             backward_time = 0.
             current_timestep = time.time()
-        for i, (x, y) in enumerate(self.data.train_dl):
+        for i, (x, y) in enumerate(self.data.train_eval_dl):
             x, y = x.to(self.device), y.to(self.device)
             if epoch_id == 0:
                 loading_time += time.time() - current_timestep
@@ -126,9 +204,7 @@ class SupervisedTrainer(object):
             # save learning rate
             self._hist_lr.append(self.scheduler.get_last_lr())
 
-            if self.scheduler and self._iter_scheduler:
-                # Scheduler every iteration for cosine decay
-                self.scheduler.step()
+            self.scheduler.step()
 
             # Save loss
             self._epoch_loss += loss
@@ -136,11 +212,13 @@ class SupervisedTrainer(object):
             if epoch_id == 0:
                 backward_time += time.time() - current_timestep
                 current_timestep = time.time()
+
         if epoch_id == 0:
             logger.info(f"Loading time {loading_time:.1f}s, Forward Time {forward_time:.1f}s, Backward Time "
                         f"{backward_time:.1f}s")
 
-    def train(self, num_epochs, optimizer, optim_params, reduced_lr=False, **kwargs):
+    def train(self, num_epochs, optimizer, scheduler, optim_params, scheduler_params, eval_params, evaluate_at,
+              warmup_epochs=10, iter_scheduler=True, reduced_lr=False):
 
         # Check and Load existing model
         epoch_start, optim_state, sched_state = self.load_model(self.save_root, return_vals=True)
@@ -153,9 +231,9 @@ class SupervisedTrainer(object):
         params = get_params_(self.fine_tune, self.model, reduced_lr, optim_params["lr"], logger)
         self.optimizer = optimizer(params, **optim_params)
 
-        steps_per_epoch = 45000 // 256
-        self.scheduler = torch.optim.lr_scheduler.OneCycleLR(self.optimizer, 0.1, steps_per_epoch=steps_per_epoch,
-                                                             epochs=num_epochs)
+        self.scheduler = scheduler(self.optimizer, **scheduler_params)
+
+
         # Run Training
         for epoch in range(epoch_start, num_epochs):
             self.epoch = epoch
@@ -179,16 +257,18 @@ class SupervisedTrainer(object):
                 logger.debug(f'GPU Reserved {torch.cuda.memory_reserved(0) // 1e6}MB,'
                              f' Allocated {torch.cuda.memory_allocated(0) // 1e6}MB')
 
-            if (epoch + 1) % 6 == 0:
-                recall, auroc, acc= self.evaluate()
+            if (epoch + 1) % 1 == 0:
+                recall, auroc, auroc_norm, acc = self.evaluate()
 
                 if self.environment != "gpu-test":
                     self.tb_logger.add_scalar('kappa/linear_acc', acc, epoch)
                     self.tb_logger.add_scalar('kappa/AUROC_Dataset', auroc, epoch)
                     self.tb_logger.add_scalar('kappa/R@1_Dataset', recall, epoch)
 
-                logger.info(f"Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc:0.3f}, Recall: {recall:0.3f}, "
+                logger.info(f"Loss: {self.loss_hist[-1]:0.2f}, AUROC: {auroc:0.3f}, AUROC_Norm: {auroc_norm:0.3f}, Recall: {recall:0.3f}, "
                             f"linear accuracy: {acc:0.1f}\n")
+
+        self.vis_t_SNE()
 
         # Save final model
         self.save_model(self.save_root, num_epochs)

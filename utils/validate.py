@@ -84,7 +84,7 @@ class Validate:
 
         try:
             cifar10h = get_cifar10h()
-            unc_h = 1 - entropy(cifar10h, axis=1)
+            unc_h = entropy(cifar10h, axis=1)
 
             corr = np.corrcoef(unc, unc_h)
             rank_corr = spearmanr(unc, unc_h)[0]
@@ -233,6 +233,8 @@ class Validate:
         p_cropped = (unc > unc_c).float().mean()
         cor_cropped = spearmanr(-unc_c.cpu().numpy(), crop.cpu().numpy())[0]
 
+        print(unc_c[:10], crop[:10])
+
         return p_cropped, cor_cropped
 
     @torch.no_grad()
@@ -302,10 +304,8 @@ class Validate:
 
         unc_min = unc.min()
         unc_max = unc.max()
-
         # Exponential weighting of higher uncertainties for better visualization
-        unc = torch.exp((unc - unc_min) / (unc_max - unc_min) * 6)
-        unc = torch.clamp(unc, max=500)  #
+        unc = torch.exp((unc - unc_min) / (unc_max - unc_min) * 3.5)
 
         feats, labels, unc = feats.cpu(), labels.cpu(), unc.cpu()
 
@@ -315,7 +315,7 @@ class Validate:
         matplotlib.use('PDF')
         fig = plt.figure()
         plt.style.use('default')
-        plt.scatter(feats_tsne[:, 0], feats_tsne[:, 1], c=labels, s=unc, alpha=0.3)
+        plt.scatter(feats_tsne[:, 0], feats_tsne[:, 1], c=labels, s=unc, alpha=0.6)
 
         # Remove axis ticks and labels.
         plt.xticks([])

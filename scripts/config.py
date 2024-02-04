@@ -50,6 +50,7 @@ def my_config():
     fine_tuned = False,
     pretrained = False
     lambda_unc = 0.
+    evaluate = False
 
     path = "./saved_runs/"
     artifact_dir = f'{path}/{name}'  # name

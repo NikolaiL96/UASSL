@@ -37,6 +37,7 @@ if __name__ == "__main__":
     parser.add_argument("--reduced_lr", default=False, type=str2bool)
     parser.add_argument("--run_final", "-rf", default=False, type=str2bool)
     parser.add_argument("--log_level", default="debug", type=str)
+    parser.add_argument("--evaluate", default=False, type=str2bool)
 
     args = parser.parse_args()
 
@@ -65,6 +66,9 @@ if __name__ == "__main__":
         if os.getenv('SLURM_JOB_NAME') != "gpu_job":
             slug += f"--{os.getenv('SLURM_JOB_NAME')}"
 
+    if args.evaluate:
+        name += "--Eval"
+
     time = datetime.datetime.now().strftime("%B%d")
     slug += f"--{time}"
 
@@ -88,6 +92,7 @@ if __name__ == "__main__":
                   "lambda_unc": args.lambda_unc,
                   "path": path,
                   "data_root": data_root,
-                  "n_mc": args.n_mc}
+                  "n_mc": args.n_mc,
+                  "evaluate": args.evaluate}
 
     ex.run(named_configs=[args.method], config_updates=param_dict)

@@ -20,11 +20,20 @@ def get_checkpoint_path(method, distribution):
                 checkpoint_path = "/home/lorenzni/checkpoints/SimCLR_sphere/epoch_1000.tar"
             else:
                 checkpoint_path = "/Users/nikolai.lorenz/Desktop/Statistik/Masterarbeit/Checkpoints/BarlowTwins/epoch_1000.tar"
+
     elif method == "BarlowTwins":
-        if cluster:
-            checkpoint_path = "/home/lorenzni/checkpoints/BT_sphere/epoch_1000.tar"
+        if distribution.lower() == "powerspherical":
+            if cluster:
+                checkpoint_path = "/home/lorenzni/checkpoints/BT_powerspherical/epoch_1000.tar"
         else:
-            checkpoint_path = "/Users/nikolai.lorenz/Desktop/Statistik/Masterarbeit/Checkpoints/SimCLR/epoch_1000.tar"
+            if cluster:
+                checkpoint_path = "/home/lorenzni/checkpoints/BT_sphere/epoch_1000.tar"
+            else:
+                checkpoint_path = "/Users/nikolai.lorenz/Desktop/Statistik/Masterarbeit/Checkpoints/SimCLR/epoch_1000.tar"
+
+    elif method == "Supervised":
+        if cluster:
+            checkpoint_path = "/home/lorenzni/checkpoints/Supervised/epoch_200.tar"
 
     return checkpoint_path
 
@@ -32,5 +41,8 @@ def get_checkpoint_path(method, distribution):
 def clean_params(params):
     #del params["backbone_net.fc.layer.weight"]
     #del params["backbone_net.fc.layer.bias"]
-    del params["projector.mlp.6.weight"]
-    return params
+    try:
+        del params["projector.mlp.6.weight"]
+        return params
+    except KeyError:
+        return params

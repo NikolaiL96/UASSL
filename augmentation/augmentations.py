@@ -22,7 +22,7 @@ class BYOL_augmentaions(TwoTransform):
 
 class Supervised_augmentations(Transform):
     def __init__(self, image_size, normalize):
-        train_tfms = T.Compose([T.RandomCrop(image_size, padding=4, padding_mode='reflect'),
+        train_tfms = T.Compose([#T.RandomCrop(image_size, padding=4, padding_mode='reflect'),
                                 T.RandomHorizontalFlip(),
                                 T.ToTensor(),
                                 T.Normalize(*normalize)])
