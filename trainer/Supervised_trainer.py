@@ -3,13 +3,13 @@ import time
 import logging
 
 import torch
-
+import torchvision.transforms.functional as TF
 from torch.utils.tensorboard import SummaryWriter
 
 from utils import check_existing_model
 from .utils import get_params_
 from torch.cuda.amp import autocast, GradScaler
-from scipy.stats import entropy
+from scipy.stats import entropy, spearmanr
 import torch.nn as nn
 from torchmetrics.functional.classification import binary_auroc as auc
 import numpy as np
@@ -17,6 +17,9 @@ import matplotlib
 import matplotlib.pyplot as plt
 from pathlib import Path
 from sklearn.manifold import TSNE
+
+from utils import load_dataset
+from utils.utils import get_cifar10h
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
 logger = logging.getLogger()
@@ -77,6 +80,7 @@ class SupervisedTrainer(object):
     def evaluate(self,):
         Recall, Auroc, Auroc_norm = [], [], []
         total_top1, total_num = 0.0, 0
+        uncertainty = np.empty(0)
         for x, labels in self.data.test_dl:
             x, labels = x.to(self.device), labels.to(self.device)
             with torch.no_grad():
@@ -93,15 +97,80 @@ class SupervisedTrainer(object):
                 total_num += labels.size(0)
                 total_top1 += (pred == labels).float().sum().item()
 
+                uncertainty = np.append(uncertainty, unc)
+
                 Recall.append(is_same_class.mean())
                 Auroc.append(auroc)
                 Auroc_norm.append(auroc_norm)
+
+        # entropy_uncertainty = entropy(uncertainty, axis=0)
+        # print(f"Entropy uncertainty: {entropy_uncertainty}, Std uncertainty: {np.std(uncertainty)}")
 
         Recall = torch.stack(Recall, 0)
         Auroc = torch.Tensor(Auroc)
         Auroc_norm = torch.Tensor(Auroc_norm)
         acc = total_top1 / total_num * 100
         return Recall.mean(), Auroc.mean(), Auroc_norm.mean(), acc
+
+    @torch.no_grad()
+    def corrupted_img(self):
+        self.model.eval()
+
+        # Modified from https://github.com/mkirchhof/url/tree/main
+        crop_min = torch.tensor(0.1, device=self.device)
+        crop_max = torch.tensor(0.5, device=self.device)
+        crop = torch.rand(len(self.ssl_data.test_dl.dataset), device=self.device) * (crop_max - crop_min) + crop_min
+
+        unc, unc_c = np.empty(0), np.empty(0)
+
+        for n, (x, target) in enumerate(self.ssl_data.test_dl):
+            x, target = x.to(self.device), target.to(self.device)
+            x_c = torch.zeros_like(x, device=self.device)
+            c_sizes = torch.zeros(x.shape[0], device=self.device)
+
+            for i in range(x.shape[0]):
+                # Crop each image individually because torchvision cannot do it batch-wise
+                crop_size = int(torch.round(min(x.shape[2], x.shape[3]) * crop[n * x.shape[0] + i]))
+                c_sizes[i] = crop_size
+                x_c[i] = TF.resize(TF.center_crop(x[i], [crop_size]), [x.shape[2], x.shape[3]], antialias=True)
+
+            with autocast(enabled=self.use_amp):
+                output = self.model(x)
+                output_c = self.model(x_c)
+
+            unc = np.append(unc, entropy(nn.Softmax(dim=-1)(output).cpu().numpy(), axis=1))
+            unc_c = np.append(unc_c, entropy(nn.Softmax(dim=-1)(output_c).cpu().numpy(), axis=1))
+
+        p_cropped = (unc > unc_c).mean()
+        cor_cropped = spearmanr(-unc_c, crop.cpu().numpy())[0]
+
+        print(f"p_c: {p_cropped}, corr_c {cor_cropped}")
+
+        return p_cropped, cor_cropped
+
+    @torch.no_grad()
+    def get_cor(self):
+        unc = np.empty(0)
+        dl_kwargs = {"batch_size": 512, "shuffle": False, "num_workers": min(os.cpu_count(), 0)}
+        data_cifar10h, *_ = load_dataset("cifar10", "./data/", augmentation_type="BYOL", dl_kwargs=dl_kwargs)
+
+        for n, (x_test, _) in enumerate(data_cifar10h.test_dl):
+            x_test = x_test.to(self.device)
+
+            with autocast(enabled=self.use_amp):
+                output = self.model(x_test)
+
+            unc = np.append(unc, entropy(nn.Softmax(dim=-1)(output).cpu().numpy(), axis=1))
+
+        cifar10h = get_cifar10h()
+        unc_h = entropy(cifar10h, axis=1)
+
+        corr = np.corrcoef(unc, unc_h)
+        rank_corr = spearmanr(unc, unc_h)[0]
+
+        print(f"Corr_p: {corr[0, 1]}, Corr_H: {rank_corr}")
+        return corr[0, 1], rank_corr
+
 
     def vis_t_SNE(self):
 
@@ -142,7 +211,6 @@ class SupervisedTrainer(object):
             unc_max = unc.max()
             # Exponential weighting of higher uncertainties for better visualization
             unc = torch.exp((unc - unc_min) / (unc_max - unc_min) * 3.5)
-        print(feats.shape)
 
         # Perform t-SNE
         feats_tsne = TSNE(n_components=2, learning_rate='auto', init='random', perplexity=50).fit_transform(feats)
@@ -257,7 +325,7 @@ class SupervisedTrainer(object):
                 logger.debug(f'GPU Reserved {torch.cuda.memory_reserved(0) // 1e6}MB,'
                              f' Allocated {torch.cuda.memory_allocated(0) // 1e6}MB')
 
-            if (epoch + 1) % 1 == 0:
+            if (epoch + 1) % 10 == 0:
                 recall, auroc, auroc_norm, acc = self.evaluate()
 
                 if self.environment != "gpu-test":
@@ -269,6 +337,8 @@ class SupervisedTrainer(object):
                             f"linear accuracy: {acc:0.1f}\n")
 
         self.vis_t_SNE()
+        self.corrupted_img()
+        self.get_cor()
 
         # Save final model
         self.save_model(self.save_root, num_epochs)

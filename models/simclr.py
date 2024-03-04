@@ -53,16 +53,19 @@ class SimCLR(nn.Module):
         # Verbose
         print(f"We initialize SimCLR with {self.rep_dim} dimensions and a {distribution_type} distribution.")
 
+
     def initialize_projector(self, projector_hidden):
         if projector_hidden:
             if (self.loss == "KL_Loss") and (self.distribution_type == "normal"):
-                self.projector = MLP_variational(self.rep_dim, projector_hidden, bias=True)
+                self.projector = MLP_variational(self.rep_dim, projector_hidden, bias=False)
+                print(f"The variational projector has {projector_hidden} hidden units")
             elif (self.loss == "KL_Loss") and (self.distribution_type != "normal"):
                 self.projector = nn.Identity()
                 warnings.warn("Projector hidden with KL Loss and no Normal distribution specified. No projection "
                               "head will be used!")
             else:
-                self.projector = MLP(self.rep_dim, projector_hidden, bias=False)
+                self.projector = MLP(self.rep_dim, projector_hidden, bias=False, batchnorm_last=False,
+                                     use_batchnorm=True)
             print(f"The projector has {projector_hidden} hidden units")
         else:
             self.projector = nn.Identity()

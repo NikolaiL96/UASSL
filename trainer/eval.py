@@ -1,14 +1,9 @@
-import os
-import time
+
 import logging
-
 import torch
-from torch.optim import lr_scheduler
-from torch.utils.tensorboard import SummaryWriter
 
-from utils import check_existing_model, Validate, Linear_Protocoler
-from .utils import grad_clip_hook_, get_params_
-from torch.cuda.amp import autocast, GradScaler
+from utils import check_existing_model, Validate, Linear_Protocoler, plot_kappa_class
+
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
 logger = logging.getLogger()
@@ -28,9 +23,10 @@ class Evaluator(object):
         # Define data
         self.data = ssl_data
 
-
         self.model.eval()
         self.model.requires_grad_(False)
+
+        plot_kappa_class(self.model, self.device, ssl_data)
 
         validate = Validate(data=self.data, device=self.device, distribution=self.distribution,
                             model=self.model, epoch=epoch, last_epoch=True, low_shot=False, plot_tsne=True)
@@ -64,7 +60,7 @@ class Evaluator(object):
         knn = evaluator.knn_accuracy(self.data.train_eval_dl, self.data.test_dl)
 
         # R@1 and R-AUROC
-        recall, auc, R2, A2 = evaluator.recall_auroc(self.data.test_dl)
+        recall, auc, R2, A2 = evaluator.recall_auroc(self.data.test_dl, get_entropy=True)
         return recall, auc, knn, R2, A2
 
 

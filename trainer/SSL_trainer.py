@@ -266,9 +266,7 @@ class SSL_Trainer(object):
 
                 cor_corrupted, p_corrupted = validate.get_metrics()
                 cor_pearson, cor_spearman = validate.get_cor()
-
-                linear_acc_10, ece = validate.get_linear_probing(eval_params=eval_params, epoch=epoch)
-                print(f"ece_minmax: {ece}")
+                linear_acc_10 = validate.get_linear_probing(eval_params=eval_params)
 
 
                 if self.environment != "gpu-test":
@@ -278,8 +276,6 @@ class SSL_Trainer(object):
                     self.tb_logger.add_scalar('kappa/cor_pearson', cor_pearson, epoch)
                     self.tb_logger.add_scalar('kappa/cor_spearman', cor_spearman, epoch)
                     self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR10', linear_acc_10, epoch)
-
-                    self.tb_logger.add_scalar('kappa/ece', ece, epoch)
 
             # Run evaluation
             if epoch == num_epochs - 1:
@@ -304,12 +300,12 @@ class SSL_Trainer(object):
 
                 recall_cifar100, auroc_cifar100 = validate_low_shot.recall_auroc()
                 linear_acc_100 = validate_low_shot.get_linear_probing(eval_params=eval_params)
-                knn_cifar100 = validate_low_shot.knn_accuracy()
+
+                print(f"AUROC100: {auroc_cifar100:0.3f}, Recall100: {recall_cifar100:0.3f}, LinAcc100: {linear_acc_100:0.1f}\n")
 
                 if self.environment != "gpu-test":
                     self.tb_logger.add_scalar('ZeroShot/AUROC_CIFAR100', auroc_cifar100, epoch)
                     self.tb_logger.add_scalar('ZeroShot/R@1_CIFAR100', recall_cifar100, epoch)
-                    self.tb_logger.add_scalar('ZeroShot/knn_CIFAR100', knn_cifar100, epoch)
                     self.tb_logger.add_scalar('ZeroShot/Linear_accuracy_CIFAR100', linear_acc_100, epoch)
 
         # Save final model

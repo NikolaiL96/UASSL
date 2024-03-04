@@ -34,7 +34,7 @@ class Validate:
         self.data = data
 
         dataset = str(data.test_dl.dataset).split("\n")[0].split(" ")[1]
-        oob_data = "cifar10" if dataset == "cifar100" else "cifar100"
+        oob_data = "cifar10" if dataset.lower() == "cifar100" else "cifar100"
 
         if low_shot:
             dl_kwargs = {"batch_size": 512, "shuffle": True, "num_workers": min(os.cpu_count(), 0)}
@@ -95,8 +95,8 @@ class Validate:
             print(e)
             return 0., 0.
 
-    def get_linear_probing(self, eval_params, oob_data=False, epoch=None):
-        if not oob_data:
+    def get_linear_probing(self, eval_params, epoch=None):
+        if not self.low_shot:
             test_loader = self.data.test_dl
         else:
             test_loader = self.data_test.test_dl
@@ -203,9 +203,8 @@ class Validate:
     @torch.no_grad()
     def corrupted_img(self):
         # Modified from https://github.com/mkirchhof/url/tree/main
-        crop_min = torch.tensor(0.25, device=self.device)
-        crop_max = torch.tensor(1., device=self.device)
-        k = 0
+        crop_min = torch.tensor(0.1, device=self.device)
+        crop_max = torch.tensor(0.5, device=self.device)
         crop = torch.rand(len(self.data_test.test_dl.dataset), device=self.device) * (crop_max - crop_min) + crop_min
 
         unc, unc_c = (), ()
@@ -217,9 +216,10 @@ class Validate:
 
             for i in range(x.shape[0]):
                 # Crop each image individually because torchvision cannot do it batch-wise
-                crop_size = int(torch.round(min(x.shape[2], x.shape[3]) * crop[k + i]))
+                crop_size = int(torch.round(min(x.shape[2], x.shape[3]) * crop[n * x.shape[0] + i]))
                 c_sizes[i] = crop_size
-                x_c[i] = TF.resize(TF.center_crop(x[i], [crop_size]), [x.shape[2], x.shape[3]], antialias=True)
+                c = TF.center_crop(x[i], [crop_size])
+                x_c[i] = TF.resize(c, [x.shape[2], x.shape[3]], antialias=True)
 
             with autocast(enabled=self.use_amp):
                 unc += (self.encoder(x).scale,)
@@ -230,10 +230,9 @@ class Validate:
         if self.distribution not in ["normal", "normalSingleScale"]:
             unc, unc_c = 1 / unc, 1 / unc_c
 
+
         p_cropped = (unc > unc_c).float().mean()
         cor_cropped = spearmanr(-unc_c.cpu().numpy(), crop.cpu().numpy())[0]
-
-        print(unc_c[:10], crop[:10])
 
         return p_cropped, cor_cropped
 
@@ -294,7 +293,7 @@ class Validate:
     def vis_t_SNE(self, feats, labels, unc, data=None):
 
         if data == "cifar10":
-            idx = torch.randperm(unc.shape[0])[:4000]
+            idx = torch.randperm(unc.shape[0])[:10000]
 
         else:
             id = torch.tensor(np.random.choice(np.unique(labels.cpu().numpy()), 10), device=self.device)

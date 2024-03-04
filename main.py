@@ -45,7 +45,7 @@ if __name__ == "__main__":
     projector = get_projector_settings(args.method, args.projector, args.network, args.projector_out,
                                        args.projector_hidden)
     train_params, eta = get_train_params(args.method, args.epochs, args.reduced_lr, args.batch_size,
-                                         args.learning_rate, args.warmup)
+                                         args.learning_rate, args.warmup, args.loss)
 
     if args.method == "SimCLR":
         method_params = {"projector_hidden": projector, "loss": args.loss, "lambda_reg": args.lambda_reg,
@@ -53,7 +53,8 @@ if __name__ == "__main__":
                          "n_mc": args.n_mc, "loc_warmup": args.loc_warmup}
     elif args.method == "BarlowTwins":
         method_params = {"projector_hidden": projector, "loss": args.loss, "lambda_bt": args.lambda_bt,
-                         "lambda_reg": args.lambda_reg, "lambda_unc": args.lambda_unc, "loc_warmup": args.loc_warmup}
+                         "n_mc": args.n_mc, "lambda_reg": args.lambda_reg, "lambda_unc": args.lambda_unc,
+                         "loc_warmup": args.loc_warmup}
     elif args.method == "Supervised":
         method_params = {"num_classes": 10 if args.dataset == "cifar10" else 100}
 
@@ -65,6 +66,7 @@ if __name__ == "__main__":
 
         if os.getenv('SLURM_JOB_NAME') != "gpu_job":
             slug += f"--{os.getenv('SLURM_JOB_NAME')}"
+
 
     if args.evaluate:
         name += "--Eval"

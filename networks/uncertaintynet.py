@@ -52,6 +52,12 @@ class ProbabilisticLayer(nn.Module):
             norm_mean = torch.linalg.norm(mean, dim=1, keepdim=True)
             return pointdistribution.PointDistribution(loc=mean / norm_mean, scale=norm_mean)
 
+        if "normal" in self.distribution:
+            if unc.dim() == 1:
+                raise ValueError("If distribution is normal, uncertainty should be two-dimensional.")
+            std = nn.functional.softplus(unc) + self.eps
+            return normaldistribution.Normal(mean, std)
+
         const = torch.pow(torch.tensor(self.in_features).to(mean.device), 1 / 2.)
         kappa = nn.functional.softplus(unc.squeeze())
         kappa = const * kappa + self.eps
@@ -63,11 +69,6 @@ class ProbabilisticLayer(nn.Module):
         if "vonMisesFisher" in self.distribution:
             mean = nn.functional.normalize(mean, dim=1)
             return vonmisesfisher.VonMisesFisher(mean, kappa)
-
-        if "normal" in self.distribution:
-            if kappa.dim() == 1:
-                raise ValueError("If distribution is normal, uncertainty should be two-dimensional.")
-            return normaldistribution.Normal(mean, kappa)
 
         if self.distribution == "normalSingleScale":
             if kappa.dim() == 1:

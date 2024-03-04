@@ -9,3 +9,4 @@ from .utils import _find_low_and_high_images, get_cifar10h, knn_predict, _get_mo
     _split_name, print_parameter_status, _get_state_dict, get_optimizer, get_projector_settings, \
     get_data_root_and_path, str2bool, get_train_params, log_level
 from .reliability_diagrams import reliability_diagram
+from .uncetainty_visualizer import plot_kappa_class

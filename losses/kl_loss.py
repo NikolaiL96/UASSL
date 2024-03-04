@@ -32,12 +32,12 @@ class KL_Loss(nn.Module):
             m = torch.einsum("ib, njb -> nij", q.loc, mc)  # [chunk_size, n_batch, n_batch]
 
             # Compute the log-term in chunks
-            log_term = torch.add(log_term, torch.mean(torch.log1p(m), dim=0))
+            log_term = torch.add(log_term, torch.mean(torch.log1p(1+ m), dim=0))
 
         E_q = q.log_normalizer() + q.scale * (log_term / (n+1))
 
         kl = - H_p[None] - E_q  # [n_batch, n_batch]
-        return kl
+        return torch.clip(kl, 0.)
 
     def kl_two_normals(self, mu1, mu2, var1, var2):
 
@@ -76,6 +76,5 @@ class KL_Loss(nn.Module):
         sim_mat[mask_self] = float('-inf')
 
         sim_mat *= self.temperature
-        loss = sim_mat[mask_pos] - torch.logsumexp(sim_mat, dim=-1) + 0.1 * torch.log(scale)
-
-        return -loss.mean()
+        loss = torch.logsumexp(sim_mat, dim=-1) - sim_mat[mask_pos] - 0.5 * torch.log(scale)
+        return loss.mean()

@@ -67,11 +67,15 @@ def get_data_root_and_path(cluster, run_final):
     return data_root, path
 
 
-def get_optimizer(method, lr=None, batch_size=512):
+def get_optimizer(method, lr=None, batch_size=512, loss=None):
     optim_params = {"momentum": 0.9}
 
     if method == "SimCLR":
-        optim_params["lr"] = 0.3 * batch_size / 256
+        if loss == "KL_Loss":
+            optim_params["lr"] = 0.002
+        else:
+            optim_params["lr"] = 0.3 * batch_size / 256
+
         optim_params["weight_decay"] = 1.0e-6
 
     elif method == "BarlowTwins":
@@ -88,7 +92,7 @@ def get_optimizer(method, lr=None, batch_size=512):
     return optim_params
 
 
-def get_train_params(method, epochs, reduced_lr, batch_size, lr=6e-2, warmup=0):
+def get_train_params(method, epochs, reduced_lr, batch_size, lr=6e-2, warmup=0, loss=None):
     eta = 0
     if method == "SimCLR":
         warmup = 0
@@ -100,7 +104,7 @@ def get_train_params(method, epochs, reduced_lr, batch_size, lr=6e-2, warmup=0):
         warmup = 0
         eta = 1.0e-3
 
-    optim_params = get_optimizer(method=method, batch_size=batch_size, lr=lr)
+    optim_params = get_optimizer(method=method, batch_size=batch_size, lr=lr, loss=loss)
 
     return {"num_epochs": int(epochs),
             "optimizer": SGD,

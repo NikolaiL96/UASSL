@@ -57,7 +57,7 @@ class ModelFactory:
         if model is None:
             model = self._construct_model()
 
-        checkpoint_path = get_checkpoint_path(self.model_id, self.distribution_type)
+        checkpoint_path = get_checkpoint_path(self.model_id, self.distribution_type, self.model_options)
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         params = checkpoint["model"]
 
@@ -65,7 +65,7 @@ class ModelFactory:
             params = checkpoint["model"]
             msg = model.backbone_net.load_state_dict(params, strict=False)
         else:
-            params = clean_params(params)
+            params = clean_params(params, self.distribution_type)
             msg = model.load_state_dict(params, strict=False)
         print(msg)
 

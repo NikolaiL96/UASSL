@@ -89,4 +89,5 @@ def main(
                         "eta_min": eta}
 
     # Train
-    cifar10_trainer.train(**train_params, scheduler_params=scheduler_params, eval_params=eval_params)
+    if not evaluate:
+        cifar10_trainer.train(**train_params, scheduler_params=scheduler_params, eval_params=eval_params)

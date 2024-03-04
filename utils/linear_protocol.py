@@ -4,6 +4,7 @@ from torch.optim import SGD
 from torch.optim.lr_scheduler import CosineAnnealingLR
 import torch.nn.functional as F
 import numpy as np
+from scipy.stats import entropy
 
 import matplotlib
 from pathlib import Path
@@ -33,7 +34,7 @@ class Linear_Protocoler(object):
         self.distribution = distribution
 
     @torch.no_grad()
-    def recall_auroc(self, test_dl):
+    def recall_auroc(self, test_dl, get_entropy=False):
         Recall = []
         Auroc = []
         Uncertainty, Loc, Labels = (), (), ()
@@ -69,6 +70,7 @@ class Linear_Protocoler(object):
         Loc = torch.cat(Loc)
         Labels = torch.cat(Labels)
 
+
         Recall = torch.stack(Recall, 0)
         Auroc = torch.Tensor(Auroc)
 
@@ -76,6 +78,10 @@ class Linear_Protocoler(object):
         c_c = Labels[c_idx]
         correctness = (c_c == Labels).float()
         Auroc_set = auc(-Uncertainty.squeeze(), correctness.int()).item()
+
+        if get_entropy:
+            entropy_uncertainty = entropy(Uncertainty.cpu().numpy(), axis=0)
+            print(f"Entropy uncertainty: {entropy_uncertainty}")
 
         return Recall.mean(), Auroc.mean(), correctness.mean(), Auroc_set
 
