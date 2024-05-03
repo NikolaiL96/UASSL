@@ -2,6 +2,8 @@ import numpy as np
 from scipy.stats import entropy, spearmanr
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+
 from pathlib import Path
 
 import torch
@@ -292,12 +294,17 @@ class Validate:
     @torch.no_grad()
     def vis_t_SNE(self, feats, labels, unc, data=None):
 
-        if data == "cifar10":
-            idx = torch.randperm(unc.shape[0])[:10000]
+        # if data == "cifar10":
+        #     idx = torch.randperm(unc.shape[0])[:10000]
+        #
+        # else:
+        #     id = torch.tensor(np.random.choice(np.unique(labels.cpu().numpy()), 10), device=self.device)
+        #     idx = torch.sum((labels[:, None] == id) * id[None], dim=-1).nonzero().squeeze()[:4000]
 
-        else:
-            id = torch.tensor(np.random.choice(np.unique(labels.cpu().numpy()), 10), device=self.device)
-            idx = torch.sum((labels[:, None] == id) * id[None], dim=-1).nonzero().squeeze()[:4000]
+        #id = torch.tensor(np.random.choice(np.unique(labels.cpu().numpy()), 2), device=self.device)
+
+        id = torch.tensor([1, 9], device=self.device)
+        idx = torch.sum((labels[:, None] == id) * id[None], dim=-1).nonzero().squeeze()[:4000]
 
         feats, labels, unc = feats[idx], labels[idx], unc[idx]
 
@@ -306,15 +313,19 @@ class Validate:
         # Exponential weighting of higher uncertainties for better visualization
         unc = torch.exp((unc - unc_min) / (unc_max - unc_min) * 3.5)
 
+
         feats, labels, unc = feats.cpu(), labels.cpu(), unc.cpu()
 
         # Perform t-SNE
         feats_tsne = TSNE(n_components=2, learning_rate='auto', init='random', perplexity=50).fit_transform(feats)
 
+        colors = ['#b5de73', '#99a9cf']
+        cmap = ListedColormap(colors)
+
         matplotlib.use('PDF')
-        fig = plt.figure()
+        fig = plt.figure(figsize=(6, 10))
         plt.style.use('default')
-        plt.scatter(feats_tsne[:, 0], feats_tsne[:, 1], c=labels, s=unc, alpha=0.6)
+        plt.scatter(feats_tsne[:, 0], feats_tsne[:, 1], c=labels, cmap=cmap, s=10, alpha=0.6)
 
         # Remove axis ticks and labels.
         plt.xticks([])
