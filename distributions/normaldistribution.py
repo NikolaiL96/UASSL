@@ -64,6 +64,7 @@ class Normal(ExponentialFamily):
         with torch.no_grad():
             return torch.normal(self.loc.expand(shape), self.std.expand(shape))
 
+
     def rsample(self, sample_shape=torch.Size()):
         shape = self._extended_shape(sample_shape)
         eps = _standard_normal(shape, dtype=self.loc.dtype, device=self.loc.device)

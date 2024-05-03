@@ -40,6 +40,7 @@ class MCNTXent(nn.Module):
 
             return mask_self, mask_pos, ~mask_neg
 
+
     def forward(self, p1, p2):
         n_mc, n_batch, _ = p1.shape
 

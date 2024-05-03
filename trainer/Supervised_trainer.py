@@ -74,7 +74,6 @@ class SupervisedTrainer(object):
     def get_activation(self, name):
         def hook(model, input, output):
             self.activation[name] = output.detach()
-
         return hook
 
     def evaluate(self,):

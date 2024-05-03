@@ -116,4 +116,3 @@ class UncertaintyNet(nn.Module):
         unc = self.kappa_model(feats.detach())
 
         return self.fc(feats, unc)
-
